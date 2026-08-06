@@ -1,26 +1,99 @@
 @import "tailwindcss";
 
+/*
+ * Joy's Food design tokens — matched to UI/HOME.png.
+ * Vivid terracotta on warm cream, near-white page.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --bg: #fffdfb;
+  --surface: #ffffff;
+  --surface-alt: #fdf0e2;
+  --surface-warm: #fdeada;
+  --border: #f1e8dd;
+  --border-strong: #e6d8c7;
+  --text: #221c15;
+  --muted: #7c7268;
+  --primary: #e2571e;
+  --primary-hover: #c74a16;
+  --primary-soft: #fdeee4;
+  --primary-fg: #ffffff;
+  --accent: #f0a12e;
+  --veg: #1a8a3c;
+  --nonveg: #c62828;
+  --shadow-sm: 0 1px 2px rgb(34 28 21 / 0.05);
+  --shadow-md: 0 2px 4px rgb(34 28 21 / 0.04), 0 12px 28px -16px rgb(34 28 21 / 0.22);
+  --shadow-lg: 0 4px 10px rgb(34 28 21 / 0.06), 0 24px 48px -20px rgb(34 28 21 / 0.28);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #15100b;
+    --surface: #1e1810;
+    --surface-alt: #261e15;
+    --surface-warm: #2e2318;
+    --border: #372c20;
+    --border-strong: #4a3a2a;
+    --text: #f7efe4;
+    --muted: #b3a08b;
+    --primary: #fb7f45;
+    --primary-hover: #fd9c6d;
+    --primary-soft: #33210f;
+    --primary-fg: #1a1109;
+    --accent: #f4b455;
+    --veg: #4ade80;
+    --nonveg: #f87171;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.5);
+    --shadow-md: 0 2px 4px rgb(0 0 0 / 0.4), 0 12px 28px -16px rgb(0 0 0 / 0.7);
+    --shadow-lg: 0 4px 10px rgb(0 0 0 / 0.45), 0 24px 48px -20px rgb(0 0 0 / 0.8);
   }
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-surface-warm: var(--surface-warm);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-fg: var(--primary-fg);
+  --color-accent: var(--accent);
+  --color-veg: var(--veg);
+  --color-nonveg: var(--nonveg);
+
+  --font-sans: var(--font-plus-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  --shadow-soft: var(--shadow-sm);
+  --shadow-card: var(--shadow-md);
+  --shadow-float: var(--shadow-lg);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Horizontal rails scroll without a visible scrollbar. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Category anchors clear the sticky header + rail. */
+[id^="cat-"] {
+  scroll-margin-top: 9rem;
+}
+
+/* Organic blob behind the hero food imagery. */
+.hero-blob {
+  border-radius: 46% 54% 38% 62% / 52% 40% 60% 48%;
 }

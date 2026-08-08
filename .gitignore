@@ -34,6 +34,16 @@ yarn-error.log*
 .env*
 !.env.example
 
+# OAuth client secrets downloaded from Google Cloud. Nothing reads these — the
+# client id and secret are pasted into the Supabase dashboard by hand — so the
+# file only ever sits here waiting to be committed by accident.
+client_secret_*.json
+*-credentials.json
+service-account*.json
+
+# screenshots dropped in while debugging
+sc*.png
+
 # vercel
 .vercel
 

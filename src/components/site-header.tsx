@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BadgePercent, ChevronDown, MapPin, Search, ShoppingBag } from "lucide-react";
+import { AccountMenu } from "@/components/account-menu";
 import { BrandMark } from "@/components/brand-mark";
 import { useCart } from "@/lib/cart";
 
@@ -15,7 +16,7 @@ export function SiteHeader() {
           <BrandMark />
         </Link>
 
-        {/* Location picker — wired to a real address book in Phase 4. */}
+        {/* Location picker — wired to a real address book once there is one. */}
         <button
           type="button"
           className="hidden shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text transition-colors hover:border-border-strong lg:flex"
@@ -64,13 +65,7 @@ export function SiteHeader() {
           <span className="hidden sm:inline">Cart</span>
         </Link>
 
-        <button
-          type="button"
-          aria-label="Account"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-fg"
-        >
-          N
-        </button>
+        <AccountMenu />
       </div>
     </header>
   );

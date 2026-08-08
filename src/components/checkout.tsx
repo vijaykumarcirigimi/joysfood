@@ -11,6 +11,7 @@ import {
   Minus,
   Plus,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import { placeOrder } from "@/app/actions/place-order";
 import { useCart } from "@/lib/cart";
@@ -26,15 +27,33 @@ export type CatalogEntry = {
   prepLeadHours: number;
 };
 
+/** Contact details carried over from the customer's last order. */
+export type Prefill = {
+  name: string;
+  phone: string;
+  address: string;
+};
+
 type Props = {
   days: DaySlots[];
   catalog: Record<string, CatalogEntry>;
   slotsConfigured: boolean;
+  /** Null when checking out as a guest. */
+  signedInEmail?: string | null;
+  prefill?: Prefill | null;
+  authAvailable?: boolean;
 };
 
 const HOUR_MS = 60 * 60 * 1000;
 
-export function Checkout({ days, catalog, slotsConfigured }: Props) {
+export function Checkout({
+  days,
+  catalog,
+  slotsConfigured,
+  signedInEmail = null,
+  prefill = null,
+  authAvailable = false,
+}: Props) {
   const router = useRouter();
   const { lines, setQty, clear, ready } = useCart();
 
@@ -46,10 +65,12 @@ export function Checkout({ days, catalog, slotsConfigured }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<"cod" | "upi_manual">(
     "cod",
   );
+  // Prefilled from the last order rather than a profile table — it is what the
+  // customer most recently typed, so it is the value most likely still correct.
   const [form, setForm] = useState({
-    customerName: "",
-    customerPhone: "",
-    deliveryAddress: "",
+    customerName: prefill?.name ?? "",
+    customerPhone: prefill?.phone ?? "",
+    deliveryAddress: prefill?.address ?? "",
     deliveryNotes: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -360,6 +381,31 @@ export function Checkout({ days, catalog, slotsConfigured }: Props) {
         {/* ---------------------------------------------------------------- */}
         <section>
           <h2 className="font-display text-xl font-bold">Your details</h2>
+
+          {signedInEmail ? (
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+              <UserRound className="size-4 shrink-0 text-primary" aria-hidden />
+              Signed in as {signedInEmail} — this order is saved to{" "}
+              <Link
+                href="/orders"
+                className="font-medium text-primary hover:underline"
+              >
+                your orders
+              </Link>
+              .
+            </p>
+          ) : authAvailable ? (
+            <p className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted">
+              <UserRound className="size-4 shrink-0 text-primary" aria-hidden />
+              <Link
+                href="/signin?next=%2Fcart"
+                className="font-medium text-primary hover:underline"
+              >
+                Sign in
+              </Link>
+              to save this order to your history — or just carry on as a guest.
+            </p>
+          ) : null}
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Field

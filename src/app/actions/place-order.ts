@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { createSupabasePublicClient } from "@/lib/supabase/public";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
  * Note what is NOT in this schema: prices, totals, or dish names. The client
@@ -63,7 +63,10 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
     };
   }
 
-  const supabase = createSupabasePublicClient();
+  // Cookie-aware, so a signed-in customer's JWT reaches place_order() and the
+  // order is filed under auth.uid(). Guests carry no cookie and get user_id
+  // null — still a perfectly valid order, reachable by its public token.
+  const supabase = await createSupabaseServerClient();
   if (!supabase) {
     return { ok: false, error: "Ordering is not configured yet." };
   }
@@ -83,7 +86,9 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
     })),
     p_delivery_address: value.deliveryAddress || null,
     p_delivery_notes: value.deliveryNotes || null,
-    p_user_id: null,
+    // p_user_id is deliberately not sent. 0004 derives the owner from the JWT
+    // and ignores this argument for non-service-role callers, so a hand-rolled
+    // RPC call cannot file an order into someone else's history.
   });
 
   if (error) {
@@ -106,6 +111,7 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   }
 
   revalidatePath("/cart");
+  revalidatePath("/orders");
   return {
     ok: true,
     orderNumber: order.order_number as string,

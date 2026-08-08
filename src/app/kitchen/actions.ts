@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { cancelOrder } from "@/app/actions/cancel-order";
-import { sendOrderEmail } from "@/lib/email";
+import { notifyOrder } from "@/lib/email";
 import { isKitchenAuthed, signInKitchen, signOutKitchen } from "@/lib/kitchen-auth";
 import { KITCHEN_STATUSES } from "@/lib/kitchen";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -132,7 +132,7 @@ export async function acceptOrder(formData: FormData): Promise<void> {
   // Only on the actual transition — `already` means someone accepted it a
   // moment ago and the customer has been told once already.
   if (row.accepted) {
-    sendOrderEmail(token.data, "accepted");
+    notifyOrder(token.data, "accepted", { audience: "customer" });
   }
 
   revalidatePath("/kitchen");

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { formatDayLabel, formatTime } from "@/lib/dates";
+import { pushToCustomer, pushToStaff } from "@/lib/push";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatPaise } from "@/lib/utils";
 
@@ -103,6 +104,111 @@ export function sendOrderEmail(publicToken: string, kind: EmailKind): void {
   void deliver(publicToken, kind).catch((error) => {
     console.error("[email] unexpected relay failure:", error);
   });
+}
+
+/**
+ * Email and push together, for the events that warrant both.
+ *
+ * A new order has to reach the kitchen even if they are not looking at the
+ * screen, and email alone does not buzz a phone. Each channel fails
+ * independently — a dead push subscription must not stop the email.
+ */
+export function notifyOrder(
+  publicToken: string,
+  kind: EmailKind,
+  // The customer's user_id is looked up here rather than passed in: every
+  // caller would otherwise have to fetch it, and one forgetting to would
+  // silently stop notifying that customer's other devices.
+  push?: { audience: "staff" } | { audience: "customer" },
+): void {
+  sendOrderEmail(publicToken, kind);
+  if (!push) return;
+
+  void (async () => {
+    const summary = await orderSummary(publicToken);
+    if (!summary) return;
+
+    if (push.audience === "staff") {
+      pushToStaff({
+        title: `New order — ${summary.orderNumber}`,
+        body: `${summary.when} · ${summary.total} · ${summary.items}`,
+        url: "/kitchen",
+        tag: `order-${summary.orderNumber}`,
+        // The kitchen must not miss this one; it stays until acknowledged.
+        requireInteraction: true,
+      });
+      return;
+    }
+
+    const copy = CUSTOMER_PUSH[kind];
+    pushToCustomer(publicToken, summary.userId, {
+      title: `${copy.title} — ${summary.orderNumber}`,
+      body: copy.body(summary.when),
+      url: `/order/${publicToken}`,
+      tag: `order-${summary.orderNumber}`,
+    });
+  })().catch((error) => console.error("[notify] push failed:", error));
+}
+
+const CUSTOMER_PUSH: Record<
+  EmailKind,
+  { title: string; body: (when: string) => string }
+> = {
+  received: {
+    title: "Order received",
+    body: (when) => `We've got it. The kitchen will confirm shortly — for ${when}.`,
+  },
+  accepted: {
+    title: "Order confirmed",
+    body: (when) => `The kitchen has confirmed your order for ${when}.`,
+  },
+  cancelled: {
+    title: "Order cancelled",
+    body: () => "Your order has been cancelled. Tap for the details.",
+  },
+};
+
+/** The few fields a notification needs, without loading the whole order. */
+async function orderSummary(publicToken: string): Promise<{
+  orderNumber: string;
+  when: string;
+  total: string;
+  items: string;
+  userId: string | null;
+} | null> {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      "order_number, fulfilment_date, total_paise, user_id, slot:time_slots(start_time), items:order_items(item_name_snapshot, quantity)",
+    )
+    .eq("public_token", publicToken)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const row = data as unknown as {
+    order_number: string;
+    fulfilment_date: string;
+    total_paise: number;
+    user_id: string | null;
+    slot: { start_time: string } | null;
+    items: { item_name_snapshot: string; quantity: number }[] | null;
+  };
+
+  const items = (row.items ?? [])
+    .map((i) => `${i.quantity}× ${i.item_name_snapshot}`)
+    .join(", ");
+
+  return {
+    orderNumber: row.order_number,
+    when: `${formatDayLabel(row.fulfilment_date)}${row.slot ? `, ${formatTime(row.slot.start_time)}` : ""}`,
+    total: formatPaise(row.total_paise),
+    items: items.length > 90 ? `${items.slice(0, 90)}…` : items,
+    userId: row.user_id,
+  };
 }
 
 async function deliver(publicToken: string, kind: EmailKind): Promise<void> {

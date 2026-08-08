@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
-import { sendOrderEmail } from "@/lib/email";
+import { notifyOrder } from "@/lib/email";
 import {
   RAZORPAY_KEY_ID,
   createRazorpayOrder,
@@ -216,7 +216,7 @@ export async function confirmPayment(
   // first and has already sent it — two confirmations for one order is worse
   // than none.
   if (!row.already_paid) {
-    sendOrderEmail(value.publicToken, "received");
+    notifyOrder(value.publicToken, "received", { audience: "staff" });
   }
 
   return { ok: true, alreadyPaid: Boolean(row.already_paid) };

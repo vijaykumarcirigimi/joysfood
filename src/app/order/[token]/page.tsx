@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, CheckCircle2, Clock, MapPin, Phone } from "lucide-react";
 import { CancelOrderButton } from "@/components/cancel-order-button";
+import { PushToggle } from "@/components/push-toggle";
 import { PayNow } from "@/components/pay-now";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -197,6 +198,10 @@ export default async function OrderPage({
             </p>
           </div>
         </div>
+
+        {order.status !== "cancelled" && order.status !== "completed" ? (
+          <PushToggle audience="customer" orderToken={token} className="mt-6" />
+        ) : null}
 
         {canCancel ? (
           <div className="mt-6">

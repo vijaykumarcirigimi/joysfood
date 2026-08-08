@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { sendOrderEmail } from "@/lib/email";
+import { notifyOrder } from "@/lib/email";
 import { refundPayment } from "@/lib/razorpay";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -165,5 +165,5 @@ function revalidateOrder(token: string, notify = true) {
   revalidatePath(`/order/${token}`);
   revalidatePath("/orders");
   revalidatePath("/kitchen");
-  if (notify) sendOrderEmail(token, "cancelled");
+  if (notify) notifyOrder(token, "cancelled", { audience: "customer" });
 }

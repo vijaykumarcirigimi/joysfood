@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { sendOrderEmail } from "@/lib/email";
+import { notifyOrder } from "@/lib/email";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -128,7 +128,7 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   // confirmPayment() sends the email once they have. Sending "confirmed" here
   // would be a lie for the one method where it matters most.
   if (value.paymentMethod !== "razorpay") {
-    sendOrderEmail(order.public_token as string, "received");
+    notifyOrder(order.public_token as string, "received", { audience: "staff" });
   }
 
   return {

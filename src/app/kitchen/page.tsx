@@ -31,6 +31,7 @@ import {
   rejectOrder,
   updateOrderStatus,
 } from "./actions";
+import { PushToggle } from "@/components/push-toggle";
 import { LoginForm } from "./login-form";
 import { RefundsOwed } from "./refunds-owed";
 
@@ -121,6 +122,8 @@ export default async function KitchenPage({
             {orders.length === 1 ? "order" : "orders"}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <PushToggle audience="staff" />
         <form action={kitchenLogout}>
           <button
             type="submit"
@@ -130,6 +133,7 @@ export default async function KitchenPage({
             Sign out
           </button>
         </form>
+        </div>
       </div>
 
       <p className="mb-2 text-sm text-muted">

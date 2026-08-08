@@ -313,6 +313,8 @@ export function Checkout({
                     <button
                       key={day.date}
                       type="button"
+                      data-testid="date-option"
+                      data-date={day.date}
                       onClick={() => setSelectedDate(day.date)}
                       aria-pressed={isActive}
                       className={cn(
@@ -356,6 +358,7 @@ export function Checkout({
                       <button
                         key={slot.slotId}
                         type="button"
+                        data-testid="slot-option"
                         disabled={disabled}
                         onClick={() => setSelectedSlotId(slot.slotId)}
                         aria-pressed={isActive}

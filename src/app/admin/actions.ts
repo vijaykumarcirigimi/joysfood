@@ -10,7 +10,12 @@ import { rupeesToPaise } from "@/lib/utils";
 export type ActionState = { error: string | null; ok?: boolean };
 
 const PHOTO_BUCKET = "dish-photos";
-const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+/**
+ * Must stay below next.config.ts's serverActions.bodySizeLimit, or an oversized
+ * photo is rejected as a 413 before this check can produce a readable message.
+ * Photos are downscaled in the browser first, so reaching this is unusual.
+ */
+const MAX_PHOTO_BYTES = 3.5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 
 /**
@@ -144,7 +149,9 @@ export async function saveMenuItem(
       return fail("Photo must be a JPEG, PNG, WebP or AVIF.");
     }
     if (file.size > MAX_PHOTO_BYTES) {
-      return fail("Photo must be under 5 MB.");
+      return fail(
+        "That photo is too large even after resizing. Please pick a smaller one.",
+      );
     }
 
     const extension = file.type.split("/")[1].replace("jpeg", "jpg");

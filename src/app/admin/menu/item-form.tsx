@@ -1,18 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { saveMenuItem, type ActionState } from "@/app/admin/actions";
 import {
   Checkbox,
   ErrorNote,
   Field,
   Select,
-  SubmitButton,
   TextArea,
 } from "@/app/admin/ui";
 import type { AdminCategory, AdminMenuItem } from "@/lib/admin-data";
+import { downscaleImage, formatBytes } from "@/lib/image-resize";
 
 export function ItemForm({
   categories,
@@ -24,11 +25,38 @@ export function ItemForm({
   const [state, action] = useActionState<ActionState, FormData>(saveMenuItem, {
     error: null,
   });
+  const [pending, startTransition] = useTransition();
+  const [shrunk, setShrunk] = useState<string | null>(null);
 
   const isEdit = Boolean(item);
 
+  /**
+   * Submitting by hand rather than with `action={action}` so the photo can be
+   * downscaled first. Without this, a normal phone photo exceeds the Server
+   * Action body limit and the request is rejected with a 413 before any of our
+   * validation runs — which is what produced "Something went wrong" with no
+   * useful message.
+   */
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const file = formData.get("image");
+
+    if (file instanceof File && file.size > 0) {
+      const result = await downscaleImage(file);
+      formData.set("image", result.file, result.file.name);
+      setShrunk(
+        result.skipped
+          ? null
+          : `Resized from ${formatBytes(result.originalBytes)} to ${formatBytes(result.file.size)} before upload.`,
+      );
+    }
+
+    startTransition(() => action(formData));
+  }
+
   return (
-    <form action={action} className="max-w-2xl space-y-5">
+    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
 
       <ErrorNote error={state.error} />
@@ -147,12 +175,27 @@ export function ItemForm({
           className="mt-2 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary"
         />
         <p className="mt-1 text-xs text-muted">
-          Up to 5 MB. Leave empty to keep the existing photo.
+          Any size — large photos are shrunk in your browser before upload.
+          Leave empty to keep the existing photo.
         </p>
+        {shrunk ? (
+          <p className="mt-1 text-xs text-veg">{shrunk}</p>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-3 border-t border-border pt-5">
-        <SubmitButton>{isEdit ? "Save changes" : "Add dish"}</SubmitButton>
+        {/* Not SubmitButton: useFormStatus reports nothing once the form
+            submits through onSubmit rather than action. */}
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-fg transition-colors enabled:hover:bg-primary-hover disabled:opacity-50"
+        >
+          {pending ? (
+            <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : null}
+          {isEdit ? "Save changes" : "Add dish"}
+        </button>
         <Link
           href="/admin/menu"
           className="text-sm font-medium text-muted hover:text-primary"

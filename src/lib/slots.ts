@@ -20,6 +20,80 @@ type RawSlot = {
   starts_at: string;
 };
 
+export type OrderingRules = {
+  slots: {
+    label: string;
+    startTime: string;
+    endTime: string;
+    maxOrders: number;
+    cutoffHours: number;
+  }[];
+  /** Single value when every slot agrees, which is the normal case. */
+  cutoffHours: number | null;
+  /** Longest per-dish notice on the live menu, e.g. the 24h biryani. */
+  maxLeadHours: number;
+  /** Dishes needing the longest notice, for naming them in copy. */
+  longestLeadDishes: string[];
+};
+
+/**
+ * The real ordering rules, for the How it works page.
+ *
+ * Read from the database rather than written into the copy, so the page cannot
+ * promise a cutoff the admin panel has since changed. A page that describes
+ * rules the system no longer enforces is worse than no page.
+ */
+export async function getOrderingRules(): Promise<OrderingRules> {
+  const supabase = createSupabasePublicClient();
+  if (!supabase) {
+    return { slots: [], cutoffHours: null, maxLeadHours: 0, longestLeadDishes: [] };
+  }
+
+  const [slotsResult, dishesResult] = await Promise.all([
+    supabase
+      .from("time_slots")
+      .select("label, start_time, end_time, max_orders, cutoff_hours_before")
+      .eq("is_active", true)
+      .order("display_order"),
+    supabase
+      .from("menu_items")
+      .select("name, prep_lead_time_hours")
+      .eq("is_active", true)
+      .order("prep_lead_time_hours", { ascending: false })
+      .limit(20),
+  ]);
+
+  if (slotsResult.error) {
+    console.error("[slots] ordering rules failed:", slotsResult.error);
+  }
+
+  const slots = (slotsResult.data ?? []).map((row) => ({
+    label: row.label as string,
+    startTime: row.start_time as string,
+    endTime: row.end_time as string,
+    maxOrders: row.max_orders as number,
+    cutoffHours: row.cutoff_hours_before as number,
+  }));
+
+  const distinctCutoffs = [...new Set(slots.map((s) => s.cutoffHours))];
+
+  const dishes = (dishesResult.data ?? []) as {
+    name: string;
+    prep_lead_time_hours: number;
+  }[];
+  const maxLeadHours = dishes[0]?.prep_lead_time_hours ?? 0;
+
+  return {
+    slots,
+    cutoffHours: distinctCutoffs.length === 1 ? distinctCutoffs[0] : null,
+    maxLeadHours,
+    longestLeadDishes: dishes
+      .filter((d) => d.prep_lead_time_hours === maxLeadHours && maxLeadHours > 0)
+      .map((d) => d.name)
+      .slice(0, 3),
+  };
+}
+
 export type SlotOption = {
   slotId: string;
   label: string;

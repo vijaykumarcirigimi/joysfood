@@ -7,11 +7,22 @@ import { BUSINESS } from "@/lib/business";
  * check that Privacy, Terms, Refunds and Contact are reachable by clicking
  * from the homepage, and customers look in the footer for them.
  */
-const POLICY_LINKS = [
-  { href: "/contact", label: "Contact us" },
-  { href: "/terms", label: "Terms of Service" },
-  { href: "/refunds", label: "Cancellation & Refunds" },
-  { href: "/privacy", label: "Privacy Policy" },
+const FOOTER_GROUPS = [
+  {
+    heading: "Ordering",
+    links: [
+      { href: "/how-it-works", label: "How it works" },
+      { href: "/contact", label: "Contact us" },
+    ],
+  },
+  {
+    heading: "Legal",
+    links: [
+      { href: "/terms", label: "Terms of Service" },
+      { href: "/refunds", label: "Cancellation & Refunds" },
+      { href: "/privacy", label: "Privacy Policy" },
+    ],
+  },
 ] as const;
 
 export function SiteFooter() {
@@ -43,21 +54,23 @@ export function SiteFooter() {
           <p>Dinner · 19:00 – 22:30</p>
         </div>
 
-        <nav aria-label="Policies" className="text-sm">
-          <p className="font-semibold text-text">Legal</p>
-          <ul className="mt-2 space-y-1.5">
-            {POLICY_LINKS.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="text-muted transition-colors hover:text-primary"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        {FOOTER_GROUPS.map((group) => (
+          <nav key={group.heading} aria-label={group.heading} className="text-sm">
+            <p className="font-semibold text-text">{group.heading}</p>
+            <ul className="mt-2 space-y-1.5">
+              {group.links.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-muted transition-colors hover:text-primary"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ))}
       </div>
 
       <div className="border-t border-border">

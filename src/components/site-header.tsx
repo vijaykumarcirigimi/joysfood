@@ -9,8 +9,16 @@ import { useCart } from "@/lib/cart";
 export function SiteHeader() {
   const { totalQty, ready } = useCart();
 
+  /*
+   * The header is opaque, not bg-bg/90 with a blur. Translucency looks refined
+   * over small body text and awful over the hero's display heading: as the page
+   * scrolled, the heading ghosted through the bar, half-legible and smeared by
+   * the blur, which reads as a rendering fault rather than content passing
+   * behind a header. A solid surface with one clean edge makes the boundary
+   * deliberate.
+   */
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-bg/90 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border bg-bg">
       <div className="mx-auto flex max-w-[1140px] items-center gap-3 px-4 py-3 sm:gap-4">
         <Link href="/" aria-label="Joy's Food home" className="shrink-0">
           <BrandMark />

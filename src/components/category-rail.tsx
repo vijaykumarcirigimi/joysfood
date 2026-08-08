@@ -84,7 +84,9 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
      */
     <nav
       aria-label="Menu categories"
-      className="sticky top-[68px] z-30 border-b border-border-strong bg-surface/95 shadow-[0_4px_16px_-6px_rgba(34,28,21,0.18)] backdrop-blur-md"
+      // Opaque for the same reason as the header: dish cards scrolling behind a
+      // 95% bar showed through it. The shadow already separates the layers.
+      className="sticky top-[68px] z-30 border-b border-border-strong bg-surface shadow-[0_4px_16px_-6px_rgba(34,28,21,0.18)]"
     >
       <div className="mx-auto flex max-w-[1140px] items-center gap-2 px-4 py-3.5">
         <button

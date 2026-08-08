@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarClock, CheckCircle2, MapPin, Phone } from "lucide-react";
+import { CalendarClock, CheckCircle2, Clock, MapPin, Phone } from "lucide-react";
+import { PayNow } from "@/components/pay-now";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { formatDayLabel, formatTime } from "@/lib/dates";
+import { isRazorpayTestMode } from "@/lib/razorpay";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { formatPaise } from "@/lib/utils";
 
@@ -41,10 +43,14 @@ const STATUS_COPY: Record<string, string> = {
 
 export default async function OrderPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ pay?: string }>;
 }) {
   const { token } = await params;
+  // Checkout sends ?pay=1 so the payment window opens without a second click.
+  const { pay } = await searchParams;
   const supabase = createSupabasePublicClient();
   if (!supabase) notFound();
 
@@ -60,21 +66,29 @@ export default async function OrderPage({
 
   const order = data as OrderView;
 
+  const awaitingOnlinePayment =
+    order.payment_method === "razorpay" &&
+    order.payment_status !== "paid" &&
+    order.status !== "cancelled";
+
   return (
     <div className="min-h-dvh">
       <SiteHeader />
 
       <main className="mx-auto max-w-2xl px-4 py-12">
         <div className="text-center">
-          <CheckCircle2
-            className="mx-auto size-14 text-veg"
-            aria-hidden
-          />
+          {awaitingOnlinePayment ? (
+            <Clock className="mx-auto size-14 text-accent" aria-hidden />
+          ) : (
+            <CheckCircle2 className="mx-auto size-14 text-veg" aria-hidden />
+          )}
           <h1 className="mt-4 font-display text-3xl font-bold tracking-tight">
-            Order confirmed
+            {awaitingOnlinePayment ? "Almost there" : "Order confirmed"}
           </h1>
           <p className="mt-2 text-muted">
-            Thanks {order.customer_name.split(" ")[0]} — we&rsquo;ve got it.
+            {awaitingOnlinePayment
+              ? "Your slot is held — complete the payment to confirm it."
+              : `Thanks ${order.customer_name.split(" ")[0]} — we've got it.`}
           </p>
           <p className="mt-4 inline-block rounded-full bg-surface-alt px-4 py-1.5 font-mono text-sm">
             {order.order_number}
@@ -82,6 +96,15 @@ export default async function OrderPage({
         </div>
 
         <div className="mt-8 space-y-4">
+          {awaitingOnlinePayment ? (
+            <PayNow
+              publicToken={token}
+              amountPaise={order.total_paise}
+              autoOpen={pay === "1"}
+              testMode={isRazorpayTestMode}
+            />
+          ) : null}
+
           <div className="rounded-2xl border border-border bg-surface p-5">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <CalendarClock className="size-4 text-primary" aria-hidden />
@@ -137,7 +160,11 @@ export default async function OrderPage({
             <p className="mt-3 text-xs text-muted">
               {order.payment_method === "cod"
                 ? "Pay when you collect or receive the order."
-                : "We'll confirm your UPI transfer and update this page."}
+                : order.payment_method === "razorpay"
+                  ? order.payment_status === "paid"
+                    ? "Paid online. Nothing more to do."
+                    : "Awaiting online payment."
+                  : "We'll confirm your UPI transfer and update this page."}
             </p>
           </div>
         </div>

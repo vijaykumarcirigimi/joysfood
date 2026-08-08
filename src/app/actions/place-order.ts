@@ -21,7 +21,7 @@ const PlaceOrderSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
     slotId: z.uuid("Pick a time slot"),
     fulfilmentType: z.enum(["pickup", "delivery"]),
-    paymentMethod: z.enum(["cod", "upi_manual"]),
+    paymentMethod: z.enum(["cod", "upi_manual", "razorpay"]),
     deliveryAddress: z.string().trim().max(400).optional().or(z.literal("")),
     deliveryNotes: z.string().trim().max(300).optional().or(z.literal("")),
     items: z

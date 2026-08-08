@@ -42,6 +42,8 @@ type Props = {
   signedInEmail?: string | null;
   prefill?: Prefill | null;
   authAvailable?: boolean;
+  /** Razorpay keys present. Hides the online option entirely when false. */
+  onlinePaymentAvailable?: boolean;
 };
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -53,6 +55,7 @@ export function Checkout({
   signedInEmail = null,
   prefill = null,
   authAvailable = false,
+  onlinePaymentAvailable = false,
 }: Props) {
   const router = useRouter();
   const { lines, setQty, clear, ready } = useCart();
@@ -62,9 +65,9 @@ export function Checkout({
   const [fulfilmentType, setFulfilmentType] = useState<"pickup" | "delivery">(
     "pickup",
   );
-  const [paymentMethod, setPaymentMethod] = useState<"cod" | "upi_manual">(
-    "cod",
-  );
+  const [paymentMethod, setPaymentMethod] = useState<
+    "cod" | "upi_manual" | "razorpay"
+  >(onlinePaymentAvailable ? "razorpay" : "cod");
   // Prefilled from the last order rather than a profile table — it is what the
   // customer most recently typed, so it is the value most likely still correct.
   const [form, setForm] = useState({
@@ -182,7 +185,15 @@ export function Checkout({
     }
 
     clear();
-    router.push(`/order/${result.publicToken}`);
+    // Online orders land on the order page with the payment window already
+    // opening. Routing through the order page rather than opening Checkout here
+    // means the order has a durable URL before any money moves — so a dismissed
+    // modal, a closed tab or a dropped connection all leave somewhere to retry.
+    router.push(
+      paymentMethod === "razorpay"
+        ? `/order/${result.publicToken}?pay=1`
+        : `/order/${result.publicToken}`,
+    );
   }
 
   if (!ready) {
@@ -476,6 +487,14 @@ export function Checkout({
             <div className="mt-2 grid gap-2 sm:grid-cols-2">
               {(
                 [
+                  ...(onlinePaymentAvailable
+                    ? ([
+                        {
+                          id: "razorpay",
+                          label: "Pay online (UPI, card, netbanking)",
+                        },
+                      ] as const)
+                    : []),
                   { id: "cod", label: "Pay on pickup / delivery" },
                   { id: "upi_manual", label: "UPI transfer (we confirm)" },
                 ] as const
@@ -497,7 +516,11 @@ export function Checkout({
               ))}
             </div>
             <p className="mt-2 text-xs text-muted">
-              Card and UPI checkout arrives once Razorpay approval comes through.
+              {paymentMethod === "razorpay"
+                ? "Your slot is held while you pay. You'll be taken to the payment window next."
+                : paymentMethod === "upi_manual"
+                  ? "Transfer by UPI after ordering — we confirm it by hand, so allow a little time."
+                  : "Pay in cash or by UPI when you collect or receive the order."}
             </p>
           </fieldset>
         </section>

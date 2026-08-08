@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { getCurrentUser } from "@/lib/auth";
 import { getMenu } from "@/lib/menu";
 import { getSavedContact } from "@/lib/orders";
+import { hasRazorpayConfig } from "@/lib/razorpay";
 import { getSlotAvailability } from "@/lib/slots";
 import { hasSupabaseConfig } from "@/lib/supabase/env";
 
@@ -52,6 +53,7 @@ export default async function CartPage() {
           signedInEmail={user?.email ?? null}
           prefill={prefill}
           authAvailable={hasSupabaseConfig}
+          onlinePaymentAvailable={hasRazorpayConfig}
         />
       </main>
       <SiteFooter />

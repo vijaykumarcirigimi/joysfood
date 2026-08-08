@@ -44,6 +44,12 @@ service-account*.json
 # screenshots dropped in while debugging
 sc*.png
 
+# Key exports downloaded from payment/provider dashboards. Razorpay hands you
+# the secret exactly once, as a CSV, straight into your downloads folder.
+rzp-*.csv
+*-key*.csv
+*secret*.csv
+
 # vercel
 .vercel
 

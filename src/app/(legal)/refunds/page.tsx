@@ -37,11 +37,17 @@ export default function RefundsPage() {
         we commit to buying ingredients for the orders we hold.
       </p>
       <p>
-        <strong>How to cancel:</strong> email{" "}
+        <strong>How to cancel:</strong> open your order page — the link on your
+        confirmation, or via <em>Your orders</em> if you are signed in — and use{" "}
+        <strong>Cancel this order</strong>. The button disappears once the
+        window closes. If you paid online, the refund is issued automatically at
+        the same moment.
+      </p>
+      <p>
+        If you cannot reach the page, email{" "}
         <a href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a> or call{" "}
         {BUSINESS.phone}, quoting the order number shown on your confirmation
-        page (it looks like <code>JF-2608-0001</code>). There is currently no
-        cancel button on the site, so please use one of those.
+        page (it looks like <code>JF-2608-0001</code>).
       </p>
 
       <h2>Cancelling after the cutoff</h2>

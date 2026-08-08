@@ -74,6 +74,82 @@ export async function createRazorpayOrder(input: {
   return { ok: true, id: body.id, amount: body.amount ?? input.amountPaise };
 }
 
+type RefundResult =
+  | { ok: true; id: string; amount: number; status: string }
+  | { ok: false; error: string; alreadyRefunded?: boolean };
+
+/**
+ * Refunds a captured payment in full.
+ *
+ * `speed: "normal"` puts it through the standard settlement cycle — customers
+ * see it in 5–7 working days, which is what /refunds promises. "optimum" is
+ * faster and costs a fee, so it is not the default for a home kitchen.
+ *
+ * Razorpay accepts an idempotency-style guard of its own: refunding an already
+ * fully-refunded payment fails rather than double-paying, and that case is
+ * reported back distinctly so the caller can treat it as success.
+ */
+export async function refundPayment(input: {
+  paymentId: string;
+  amountPaise: number;
+  notes?: Record<string, string>;
+}): Promise<RefundResult> {
+  if (!hasRazorpayConfig) return { ok: false, error: "Razorpay is not configured." };
+
+  const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${KEY_SECRET}`).toString("base64");
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/payments/${input.paymentId}/refund`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount: input.amountPaise,
+        speed: "normal",
+        notes: input.notes ?? {},
+      }),
+      cache: "no-store",
+    });
+  } catch (cause) {
+    console.error("[razorpay] refund network failure:", cause);
+    return { ok: false, error: "Could not reach the payment provider." };
+  }
+
+  const body = (await response.json().catch(() => null)) as
+    | {
+        id?: string;
+        amount?: number;
+        status?: string;
+        error?: { description?: string; reason?: string };
+      }
+    | null;
+
+  if (!response.ok || !body?.id) {
+    const description = body?.error?.description ?? "";
+    console.error("[razorpay] refund failed:", response.status, body);
+
+    // Refunding twice is not a failure worth surfacing as one — the customer
+    // has their money either way.
+    if (/already.*refund|fully refunded/i.test(description)) {
+      return { ok: false, error: description, alreadyRefunded: true };
+    }
+    return {
+      ok: false,
+      error: description || "The refund could not be processed.",
+    };
+  }
+
+  return {
+    ok: true,
+    id: body.id,
+    amount: body.amount ?? input.amountPaise,
+    status: body.status ?? "processed",
+  };
+}
+
 /** Constant-time compare of two hex digests of possibly differing length. */
 function safeEqualHex(a: string, b: string): boolean {
   const bufA = Buffer.from(a, "hex");

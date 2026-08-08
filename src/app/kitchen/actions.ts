@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { cancelOrder } from "@/app/actions/cancel-order";
 import { isKitchenAuthed, signInKitchen, signOutKitchen } from "@/lib/kitchen-auth";
 import { KITCHEN_STATUSES } from "@/lib/kitchen";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -48,12 +49,38 @@ export async function updateOrderStatus(
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Service role key is not configured.");
 
-  const patch: Record<string, unknown> = { status: parsed.data.status };
-
+  // Cancelling is not just a status change when the customer has paid: this
+  // used to set status = 'cancelled' and quietly keep their money. Delegate to
+  // cancelOrder(), which cancels and then refunds through the gateway.
   if (parsed.data.status === "cancelled") {
-    patch.cancelled_at = new Date().toISOString();
-    patch.cancellation_reason = "Cancelled by the kitchen";
+    const { data: order, error: lookupError } = await supabase
+      .from("orders")
+      .select("public_token")
+      .eq("id", parsed.data.orderId)
+      .maybeSingle();
+
+    if (lookupError || !order?.public_token) {
+      console.error("[kitchen] cancel lookup failed:", lookupError);
+      throw new Error("Could not cancel that order.");
+    }
+
+    const outcome = await cancelOrder(order.public_token, "kitchen");
+    if (!outcome.ok) throw new Error(outcome.error);
+
+    // A refund the gateway did not complete must not look like success on a
+    // screen the kitchen glances at during a shift.
+    if (outcome.refundPending) {
+      console.error(
+        "[kitchen] REFUND OUTSTANDING on cancelled order:",
+        outcome.orderNumber,
+      );
+    }
+
+    revalidatePath("/kitchen");
+    return;
   }
+
+  const patch: Record<string, unknown> = { status: parsed.data.status };
 
   // Moving an order out of pending_payment means the seat is no longer a
   // timed hold — clear the expiry so the sweeper cannot cancel it later.

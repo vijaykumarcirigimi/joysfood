@@ -124,77 +124,52 @@ await page.waitForTimeout(6000);
 await shot(page, "razorpay-checkout-open");
 log("   Checkout is open");
 
-// --- attempt the test card inside Razorpay's iframe -----------------------
-log("\n10. attempting test card 4111 1111 1111 1111 inside the modal…");
-const rzp = page.frameLocator("iframe.razorpay-checkout-frame");
-let paidByAutomation = false;
+// --- hand over for a manual payment ---------------------------------------
+//
+// The modal is not automated on purpose. Measured against this account:
+//   • UPI is disabled, so success@razorpay is unavailable.
+//   • Card is domestic-only — 4111 1111 1111 1111 is an international test
+//     card and is rejected with "this business accepts domestic (Indian) card
+//     payments only".
+//   • Netbanking is enabled across 44 banks and gives an explicit
+//     Success/Failure simulator, which makes it the reliable instrument.
+// Driving Razorpay's own DOM to do that would couple this to their markup.
+log(`
+10. Checkout is open — PAY IN THE BROWSER WINDOW NOW:
 
+      → choose  Netbanking
+      → pick any bank
+      → click   Success  on the simulator
+
+    (not UPI — disabled on this account; not card 4111… — international)
+
+    Watching for up to ${Math.round(HOLD_MS / 1000)}s. The page flips to
+    "Order confirmed" by itself the moment the payment lands.
+`);
+
+let paid = false;
 try {
-  const cardNumber = rzp.getByLabel("Card Number");
-  if (await cardNumber.count()) {
-    await cardNumber.fill("4111111111111111");
-    await rzp.getByLabel("MM / YY").fill("12/30");
-    await rzp.getByLabel("CVV").fill("123");
-    await shot(page, "razorpay-card-filled");
-    log("    card details entered");
-
-    const pay = rzp.getByRole("button", { name: /Pay|Continue/ }).first();
-    await pay.click({ timeout: 10_000 });
-    log("    submitted — waiting for the 3-D Secure simulator…");
-    await page.waitForTimeout(7000);
-    await shot(page, "razorpay-after-submit");
-
-    // Razorpay's test-mode simulator offers explicit Success / Failure.
-    for (const frame of page.frames()) {
-      const success = frame
-        .locator('button:has-text("Success"), a:has-text("Success"), input[value="Success" i]')
-        .first();
-      if (await success.count().catch(() => 0)) {
-        await success.click({ timeout: 8000 }).catch(() => {});
-        log("    clicked Success on the simulator");
-        break;
-      }
-    }
-
-    // Our page flips to confirmed once confirmPayment() lands.
-    await page
-      .getByRole("heading", { name: "Order confirmed" })
-      .waitFor({ timeout: 45_000 });
-    paidByAutomation = true;
-    log("    ✅ payment completed — page shows Order confirmed");
-    await shot(page, "order-confirmed-online");
-  } else {
-    log("    card form not on the first screen of the modal");
-  }
-} catch (error) {
-  log(`    automation could not finish inside the modal: ${String(error).split("\n")[0]}`);
-  await shot(page, "razorpay-automation-stalled");
-}
-
-if (!paidByAutomation) {
-  log(`
-    ⚠  Razorpay's modal is third-party UI and does not always automate.
-       The browser is OPEN for ${Math.round(HOLD_MS / 1000)}s — finish the
-       payment yourself to see it through:
-         • UPI  → VPA  success@razorpay
-         • Card → 4111 1111 1111 1111, any future expiry, any CVV
-       The page will flip to "Order confirmed" by itself when it lands.`);
-  await page.waitForTimeout(HOLD_MS);
-  const finalHeading = await page
+  await page
+    .getByRole("heading", { name: "Order confirmed" })
+    .waitFor({ timeout: HOLD_MS });
+  paid = true;
+  log("    ✅ PAID — the order page flipped to Order confirmed");
+  await shot(page, "order-confirmed-online");
+  await page.waitForTimeout(4000);
+} catch {
+  const heading = await page
     .getByRole("heading", { level: 1 })
     .innerText()
     .catch(() => "(page navigated)");
-  log(`    final state on screen: "${finalHeading}"`);
+  log(`    no payment completed in the window. Page still shows: "${heading}"`);
   await shot(page, "order-final-state");
-} else {
-  log(`\n    holding the window open for 15s so you can look…`);
-  await page.waitForTimeout(15_000);
 }
 
 await browser.close();
 
 log(`
 ━━━ SUMMARY ━━━
+  online payment        : ${paid ? "COMPLETED ✅" : "not completed"}
   pay-on-delivery order : ${codNumber}
                           ${codUrl}
   online-payment order  : ${rzpNumber}

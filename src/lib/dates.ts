@@ -60,6 +60,22 @@ export function formatDayLabel(iso: string): string {
   return `${weekday}, ${day} ${month}`;
 }
 
+/**
+ * The instant a slot begins, as epoch milliseconds.
+ *
+ * IST is a fixed +05:30 offset with no daylight saving, so the offset can be
+ * written into the timestamp literal rather than reasoned about. This mirrors
+ * `(fulfilment_date + start_time) at time zone 'Asia/Kolkata'` in the database,
+ * which stays the authority — this exists so the UI can show or hide a control
+ * without a round trip.
+ */
+export function slotStartMs(isoDate: string, startTime: string): number {
+  const [hours = 0, minutes = 0] = startTime.split(":").map(Number);
+  const hh = String(hours).padStart(2, "0");
+  const mm = String(minutes).padStart(2, "0");
+  return Date.parse(`${isoDate}T${hh}:${mm}:00+05:30`);
+}
+
 /** "12:00 PM" from a Postgres `time` value like "12:00:00". */
 export function formatTime(time: string): string {
   const [hours, minutes] = time.split(":").map(Number);

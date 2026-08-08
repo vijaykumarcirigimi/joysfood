@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, CheckCircle2, Clock, MapPin, Phone } from "lucide-react";
+import { CancelOrderButton } from "@/components/cancel-order-button";
 import { PayNow } from "@/components/pay-now";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { formatDayLabel, formatTime } from "@/lib/dates";
+import { CANCELLATION_CUTOFF_HOURS } from "@/lib/business";
+import { formatDayLabel, formatTime, slotStartMs } from "@/lib/dates";
 import { isRazorpayTestMode } from "@/lib/razorpay";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { formatPaise } from "@/lib/utils";
@@ -70,6 +72,18 @@ export default async function OrderPage({
     order.payment_method === "razorpay" &&
     order.payment_status !== "paid" &&
     order.status !== "cancelled";
+
+  // Shown only while self-cancellation would actually succeed. cancel_order()
+  // re-checks the same boundary server-side and is the authority; this just
+  // avoids offering a button that would be refused.
+  const cancellableUntil =
+    slotStartMs(order.fulfilment_date, order.slot_start) -
+    CANCELLATION_CUTOFF_HOURS * 60 * 60 * 1000;
+
+  const canCancel =
+    order.status !== "cancelled" &&
+    order.status !== "completed" &&
+    Date.now() < cancellableUntil;
 
   return (
     <div className="min-h-dvh">
@@ -168,6 +182,36 @@ export default async function OrderPage({
             </p>
           </div>
         </div>
+
+        {canCancel ? (
+          <div className="mt-6">
+            <CancelOrderButton
+              publicToken={token}
+              wasPaid={order.payment_status === "paid"}
+            />
+          </div>
+        ) : order.status === "cancelled" ? (
+          <p className="mt-6 rounded-xl border border-border bg-surface-alt px-4 py-3 text-sm text-muted">
+            This order was cancelled.
+            {order.payment_status === "refunded"
+              ? " Your refund has been issued and usually reaches your account in 5–7 working days."
+              : order.payment_status === "paid"
+                ? " A refund is owed on this order and we are processing it."
+                : ""}
+          </p>
+        ) : order.status !== "completed" ? (
+          <p className="mt-6 text-sm text-muted">
+            Free cancellation closed {CANCELLATION_CUTOFF_HOURS} hours before
+            your slot.{" "}
+            <Link
+              href="/contact"
+              className="font-medium text-primary hover:underline"
+            >
+              Contact us
+            </Link>{" "}
+            if you need to change this order.
+          </p>
+        ) : null}
 
         <p className="mt-8 text-center text-sm text-muted">
           Bookmark this page to check your order status.{" "}

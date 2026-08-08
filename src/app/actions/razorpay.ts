@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getCurrentUser } from "@/lib/auth";
 import {
   RAZORPAY_KEY_ID,
   createRazorpayOrder,
@@ -26,7 +27,10 @@ export type StartPaymentResult =
       amountPaise: number;
       orderNumber: string;
       customerName: string;
-      customerPhone: string;
+      /** E.164, because Checkout rejects a bare 10-digit number. */
+      customerContact: string;
+      /** Only for signed-in customers; guests have no address on file. */
+      customerEmail: string | null;
     }
   | { ok: false; error: string };
 
@@ -104,6 +108,21 @@ export async function startPayment(
     }
   }
 
+  // E.164 is the format Razorpay documents for prefill.contact; we store a bare
+  // 10-digit number because that is what the checkout form validates.
+  //
+  // Measured, so nobody re-derives it: this does NOT suppress Checkout's
+  // "Contact details — enter mobile number to continue" step. That step still
+  // appears with a valid E.164 contact AND an email prefilled, so it is an
+  // account-level Checkout setting on the Razorpay side, not something the
+  // integration controls.
+  const phone = order.customer_phone.replace(/\D/g, "");
+  const customerContact = phone.length === 10 ? `+91${phone}` : `+${phone}`;
+
+  // Guests have no email; signed-in customers do. Sent when available so
+  // Checkout has one less thing to ask for.
+  const user = await getCurrentUser();
+
   return {
     ok: true,
     keyId: RAZORPAY_KEY_ID,
@@ -111,7 +130,8 @@ export async function startPayment(
     amountPaise: order.total_paise,
     orderNumber: order.order_number,
     customerName: order.customer_name,
-    customerPhone: order.customer_phone,
+    customerContact,
+    customerEmail: user?.email ?? null,
   };
 }
 

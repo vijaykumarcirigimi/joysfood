@@ -99,7 +99,8 @@ export function PayNow({
       description: `Order ${started.orderNumber}`,
       prefill: {
         name: started.customerName,
-        contact: started.customerPhone,
+        contact: started.customerContact,
+        ...(started.customerEmail ? { email: started.customerEmail } : {}),
       },
       notes: { order_number: started.orderNumber },
       theme: { color: "#e2571e" },

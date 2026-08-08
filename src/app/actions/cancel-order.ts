@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { sendOrderEmail } from "@/lib/email";
 import { refundPayment } from "@/lib/razorpay";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -66,7 +67,9 @@ export async function cancelOrder(
   const orderNumber = row.order_number as string;
 
   if (!row.refund_due) {
-    revalidateOrder(token.data);
+    // Already cancelled means they were emailed the first time round; a repeat
+    // call (a retry, a double-click) must not send it again.
+    revalidateOrder(token.data, !row.already_cancelled);
     return {
       ok: true,
       orderNumber,
@@ -150,8 +153,17 @@ export async function cancelOrder(
   };
 }
 
-function revalidateOrder(token: string) {
+/**
+ * Revalidate, and tell the customer.
+ *
+ * Called on every exit path after the cancellation has committed — including
+ * the ones where the refund failed, because "cancelled, refund coming" is
+ * exactly the message someone needs then. The email reads the order fresh, so
+ * whatever payment_status ended up in the row is what it describes.
+ */
+function revalidateOrder(token: string, notify = true) {
   revalidatePath(`/order/${token}`);
   revalidatePath("/orders");
   revalidatePath("/kitchen");
+  if (notify) sendOrderEmail(token, "cancelled");
 }

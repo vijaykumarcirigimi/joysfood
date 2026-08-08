@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { sendOrderEmail } from "@/lib/email";
 import { hasWebhookSecret, verifyWebhookSignature } from "@/lib/razorpay";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -140,6 +141,11 @@ export async function POST(request: Request) {
 
     if (row.public_token) {
       revalidatePath(`/order/${row.public_token}`);
+      // Only on the transition. already_paid means the browser callback beat us
+      // to it and has already emailed the customer.
+      if (!row.already_paid) {
+        sendOrderEmail(row.public_token as string, "confirmed");
+      }
     }
     revalidatePath("/orders");
     revalidatePath("/kitchen");

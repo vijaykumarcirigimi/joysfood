@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { sendOrderEmail } from "@/lib/email";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -16,6 +17,15 @@ const PlaceOrderSchema = z
       .string()
       .trim()
       .regex(/^[6-9]\d{9}$/, "Enter a 10-digit Indian mobile number"),
+    // Optional, and only validated when given — an unusable address is worth
+    // catching here, but demanding one would cost orders.
+    customerEmail: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .pipe(z.email("Enter a valid email address"))
+      .optional()
+      .or(z.literal("")),
     fulfilmentDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
@@ -86,6 +96,7 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
     })),
     p_delivery_address: value.deliveryAddress || null,
     p_delivery_notes: value.deliveryNotes || null,
+    p_customer_email: value.customerEmail || null,
     // p_user_id is deliberately not sent. 0004 derives the owner from the JWT
     // and ignores this argument for non-service-role callers, so a hand-rolled
     // RPC call cannot file an order into someone else's history.
@@ -112,6 +123,14 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
 
   revalidatePath("/cart");
   revalidatePath("/orders");
+
+  // Online orders are not confirmed yet — the customer still has to pay, and
+  // confirmPayment() sends the email once they have. Sending "confirmed" here
+  // would be a lie for the one method where it matters most.
+  if (value.paymentMethod !== "razorpay") {
+    sendOrderEmail(order.public_token as string, "confirmed");
+  }
+
   return {
     ok: true,
     orderNumber: order.order_number as string,

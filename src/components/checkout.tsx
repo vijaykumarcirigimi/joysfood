@@ -32,6 +32,7 @@ export type Prefill = {
   name: string;
   phone: string;
   address: string;
+  email: string;
 };
 
 type Props = {
@@ -73,6 +74,7 @@ export function Checkout({
   const [form, setForm] = useState({
     customerName: prefill?.name ?? "",
     customerPhone: prefill?.phone ?? "",
+    customerEmail: prefill?.email ?? signedInEmail ?? "",
     deliveryAddress: prefill?.address ?? "",
     deliveryNotes: "",
   });
@@ -163,6 +165,7 @@ export function Checkout({
     const result = await placeOrder({
       customerName: form.customerName,
       customerPhone: form.customerPhone,
+      customerEmail: form.customerEmail,
       fulfilmentDate: selectedDate,
       slotId: selectedSlotId,
       fulfilmentType,
@@ -437,6 +440,19 @@ export function Checkout({
               inputMode="numeric"
               autoComplete="tel"
               placeholder="9876543210"
+            />
+          </div>
+
+          {/* Optional: requiring an email to buy dinner would cost more orders
+              than the confirmation is worth. No address simply means no email. */}
+          <div className="mt-4">
+            <Field
+              label="Email for your confirmation (optional)"
+              error={fieldErrors.customerEmail}
+              value={form.customerEmail}
+              onChange={(v) => setForm((f) => ({ ...f, customerEmail: v }))}
+              autoComplete="email"
+              placeholder="you@example.com"
             />
           </div>
 

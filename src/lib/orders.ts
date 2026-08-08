@@ -118,6 +118,7 @@ export type SavedContact = {
   name: string;
   phone: string;
   address: string;
+  email: string;
 };
 
 /**
@@ -131,7 +132,7 @@ export async function getSavedContact(): Promise<SavedContact | null> {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("customer_name, customer_phone, delivery_address")
+    .select("customer_name, customer_phone, delivery_address, customer_email")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -146,5 +147,6 @@ export async function getSavedContact(): Promise<SavedContact | null> {
     name: data.customer_name ?? "",
     phone: data.customer_phone ?? "",
     address: data.delivery_address ?? "",
+    email: data.customer_email ?? "",
   };
 }

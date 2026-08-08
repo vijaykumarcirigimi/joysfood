@@ -12,6 +12,7 @@ import {
 import { addDays, formatDayLabel, formatTime, istToday } from "@/lib/dates";
 import {
   buildPrepSheet,
+  getOrderCountsByDate,
   getRefundsOwed,
   getKitchenOrders,
   groupBySlot,
@@ -19,6 +20,7 @@ import {
   type KitchenOrder,
 } from "@/lib/kitchen";
 import { isKitchenAuthed, isKitchenConfigured } from "@/lib/kitchen-auth";
+import { BOOKING_WINDOW_DAYS } from "@/lib/slots";
 import { cn, formatPaise } from "@/lib/utils";
 import { kitchenLogout, markPaid, updateOrderStatus } from "./actions";
 import { LoginForm } from "./login-form";
@@ -75,16 +77,27 @@ export default async function KitchenPage({
   const today = istToday();
   const selected = /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? date! : today;
 
-  const [{ orders, error }, refundsOwed] = await Promise.all([
+  // Yesterday through the end of the booking window. Customers can order 14
+  // days ahead, so a shorter rail would hide orders the kitchen has to shop
+  // for — the whole point of a pre-order business.
+  const dates = Array.from({ length: BOOKING_WINDOW_DAYS + 2 }, (_, i) =>
+    addDays(today, i - 1),
+  );
+
+  const [{ orders, error }, refundsOwed, dateCounts] = await Promise.all([
     getKitchenOrders(selected, selected),
     // Not scoped to the selected date — money owed must follow the kitchen
     // around whichever day they are looking at.
     getRefundsOwed(),
+    getOrderCountsByDate(dates[0], dates[dates.length - 1]),
   ]);
   const prepSheet = buildPrepSheet(orders);
   const slotGroups = groupBySlot(orders);
 
-  const dates = Array.from({ length: 10 }, (_, i) => addDays(today, i - 1));
+  const upcomingTotal = dates
+    .filter((d) => d >= today)
+    .reduce((sum, d) => sum + (dateCounts[d] ?? 0), 0);
+  const busyDays = dates.filter((d) => d >= today && (dateCounts[d] ?? 0) > 0);
 
   return (
     <Shell wide>
@@ -109,21 +122,56 @@ export default async function KitchenPage({
         </form>
       </div>
 
+      <p className="mb-2 text-sm text-muted">
+        {upcomingTotal === 0
+          ? `Nothing booked in the next ${BOOKING_WINDOW_DAYS} days.`
+          : `${upcomingTotal} ${upcomingTotal === 1 ? "order" : "orders"} booked across ${busyDays.length} ${busyDays.length === 1 ? "day" : "days"} — highlighted below.`}
+      </p>
+
+      {/*
+       * A date with orders has to be findable at a glance. Empty days are
+       * deliberately faded rather than hidden: the kitchen still needs to click
+       * into one to check, and a gap in the rail reads as a loading bug.
+       */}
       <div className="no-scrollbar mb-8 flex gap-2 overflow-x-auto pb-1">
-        {dates.map((d) => (
-          <Link
-            key={d}
-            href={`/kitchen?date=${d}`}
-            className={cn(
-              "shrink-0 rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors",
-              d === selected
-                ? "border-primary bg-primary-soft text-primary"
-                : "border-border bg-surface hover:border-primary/40",
-            )}
-          >
-            {formatDayLabel(d)}
-          </Link>
-        ))}
+        {dates.map((d) => {
+          const count = dateCounts[d] ?? 0;
+          const isSelected = d === selected;
+          const isPast = d < today;
+
+          return (
+            <Link
+              key={d}
+              href={`/kitchen?date=${d}`}
+              aria-current={isSelected ? "page" : undefined}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-sm transition-colors",
+                isSelected
+                  ? "border-primary bg-primary text-primary-fg"
+                  : count > 0
+                    ? "border-primary/50 bg-primary-soft font-semibold text-primary hover:border-primary"
+                    : cn(
+                        "border-border bg-surface font-medium hover:border-primary/40",
+                        isPast ? "text-muted/60" : "text-muted",
+                      ),
+              )}
+            >
+              {formatDayLabel(d)}
+              {count > 0 ? (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-xs font-bold tabular-nums",
+                    isSelected
+                      ? "bg-primary-fg/25 text-primary-fg"
+                      : "bg-primary text-primary-fg",
+                  )}
+                >
+                  {count}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
       </div>
 
       {error ? (
@@ -136,8 +184,11 @@ export default async function KitchenPage({
       {/* Above the queue on purpose: an unpaid refund outranks today's cooking. */}
       <RefundsOwed orders={refundsOwed} />
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_18rem]">
-        <div className="space-y-8">
+      {/* minmax(0,1fr) + min-w-0, same reason as the checkout grid: without it
+          the track grows to the date rail's intrinsic width and the whole page
+          scrolls sideways on a phone. */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0 space-y-8">
           {slotGroups.length === 0 ? (
             <p className="rounded-xl border border-border bg-surface p-8 text-center text-sm text-muted">
               No orders for {formatDayLabel(selected).toLowerCase()}.

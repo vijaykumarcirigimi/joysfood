@@ -76,6 +76,42 @@ export async function getKitchenOrders(
   return { orders: (data ?? []) as unknown as KitchenOrder[], error: null };
 }
 
+/**
+ * How many orders each service date actually has, for the date rail.
+ *
+ * Counts what the kitchen will really cook, matching `slot_seats_taken()`:
+ * cancelled orders are out, and so is an unpaid order whose hold has lapsed —
+ * that seat has been released and nobody is coming for it. Counting raw rows
+ * would tell the kitchen to shop for orders that no longer exist.
+ */
+export async function getOrderCountsByDate(
+  from: string,
+  to: string,
+): Promise<Record<string, number>> {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return {};
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("fulfilment_date")
+    .gte("fulfilment_date", from)
+    .lte("fulfilment_date", to)
+    .neq("status", "cancelled")
+    .or(`status.neq.pending_payment,reserved_until.gt.${new Date().toISOString()}`);
+
+  if (error) {
+    console.error("[kitchen] date counts failed:", error);
+    return {};
+  }
+
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) {
+    const date = (row as { fulfilment_date: string }).fulfilment_date;
+    counts[date] = (counts[date] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export type RefundOwed = {
   id: string;
   order_number: string;

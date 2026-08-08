@@ -93,6 +93,16 @@ body {
   scroll-margin-top: 9rem;
 }
 
+/*
+ * The header is sticky and ~67px tall on a phone. Anything the browser scrolls
+ * into view on its own — a focused input when the keyboard opens, a section
+ * jumped to after a validation error — otherwise lands underneath it, where it
+ * cannot be read or tapped.
+ */
+main :is(section, input, textarea, select, fieldset) {
+  scroll-margin-top: 5.5rem;
+}
+
 /* Organic blob behind the hero food imagery. */
 .hero-blob {
   border-radius: 46% 54% 38% 62% / 52% 40% 60% 48%;

@@ -224,8 +224,20 @@ export function Checkout({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr_22rem]">
-      <div className="space-y-8">
+    /*
+     * minmax(0,1fr) and min-w-0, not 1fr and nothing.
+     *
+     * A grid item defaults to min-width:auto, so the track grows to its widest
+     * child's intrinsic width. The date rail is 14 buttons at 64px plus gaps —
+     * exactly 1000px — and although it scrolls horizontally itself, that
+     * intrinsic width still sized the column. The result was a 1000px content
+     * column inside a 375px phone and ~650px of page-wide horizontal scroll.
+     */
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]"
+    >
+      <div className="min-w-0 space-y-8">
         {/* ---------------------------------------------------------------- */}
         <section>
           <h2 className="font-display text-xl font-bold">Your order</h2>
@@ -234,7 +246,7 @@ export function Checkout({
               <li
                 key={line.id}
                 className={cn(
-                  "flex items-center gap-4 rounded-xl border border-border bg-surface p-3",
+                  "flex items-center gap-2 rounded-xl border border-border bg-surface p-3 sm:gap-4",
                   (!line.known || !line.isAvailable) &&
                     "border-nonveg/40 bg-nonveg/5",
                 )}
@@ -260,25 +272,28 @@ export function Checkout({
                   ) : null}
                 </div>
 
-                <div className="flex items-center rounded-lg border border-border">
+                {/* size-10, not size-8: these were 32px, under the ~44px a
+                    thumb reliably hits. The trash button had no padding at all
+                    and was a 16px target. */}
+                <div className="flex shrink-0 items-center rounded-lg border border-border">
                   <button
                     type="button"
                     onClick={() => setQty(line.id, line.qty - 1)}
                     aria-label={`Decrease ${line.name}`}
-                    className="flex size-8 items-center justify-center text-muted hover:text-primary"
+                    className="flex size-10 items-center justify-center rounded-l-lg text-muted hover:text-primary"
                   >
-                    <Minus className="size-3.5" aria-hidden />
+                    <Minus className="size-4" aria-hidden />
                   </button>
-                  <span className="w-7 text-center text-sm font-semibold tabular-nums">
+                  <span className="w-6 text-center text-sm font-semibold tabular-nums">
                     {line.qty}
                   </span>
                   <button
                     type="button"
                     onClick={() => setQty(line.id, line.qty + 1)}
                     aria-label={`Increase ${line.name}`}
-                    className="flex size-8 items-center justify-center text-muted hover:text-primary"
+                    className="flex size-10 items-center justify-center rounded-r-lg text-muted hover:text-primary"
                   >
-                    <Plus className="size-3.5" aria-hidden />
+                    <Plus className="size-4" aria-hidden />
                   </button>
                 </div>
 
@@ -286,7 +301,7 @@ export function Checkout({
                   type="button"
                   onClick={() => setQty(line.id, 0)}
                   aria-label={`Remove ${line.name}`}
-                  className="text-muted transition-colors hover:text-nonveg"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:text-nonveg"
                 >
                   <Trash2 className="size-4" aria-hidden />
                 </button>

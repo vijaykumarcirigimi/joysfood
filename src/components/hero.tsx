@@ -1,6 +1,8 @@
 import Image from "next/image";
-import { ArrowRight, CalendarDays, Play } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, CalendarDays, HelpCircle } from "lucide-react";
 import { resolveHeroPhoto } from "@/lib/dish-photos";
+import { BOOKING_WINDOW_DAYS } from "@/lib/slots";
 
 /** Hand-drawn heart + swoosh that trails the headline in the reference. */
 function HeartDoodle() {
@@ -79,7 +81,7 @@ export function Hero() {
 
             <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-surface px-4 py-2.5 text-sm font-medium text-primary">
               <CalendarDays className="size-4" aria-hidden />
-              Pre-order up to 14 days ahead
+              Pre-order up to {BOOKING_WINDOW_DAYS} days ahead
             </p>
 
             <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -90,13 +92,17 @@ export function Hero() {
                 Order Now
                 <ArrowRight className="size-4" aria-hidden />
               </a>
-              <a
-                href="#how-it-works"
+              {/* Was href="#how-it-works", which scrolled to the promo banner —
+                  a marketing block, not an explanation. The button promised one
+                  thing and delivered another. Also not a Play icon: there is no
+                  video, and pre-ordering is the part people need explained. */}
+              <Link
+                href="/how-it-works"
                 className="inline-flex items-center gap-2 rounded-xl border border-border-strong bg-surface px-6 py-3.5 text-sm font-semibold text-text transition-colors hover:border-primary/40"
               >
-                How It Works
-                <Play className="size-4 fill-current" aria-hidden />
-              </a>
+                How it works
+                <HelpCircle className="size-4" aria-hidden />
+              </Link>
             </div>
           </div>
 

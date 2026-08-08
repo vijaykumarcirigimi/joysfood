@@ -1,11 +1,17 @@
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { BOOKING_WINDOW_DAYS } from "@/lib/slots";
 
+/**
+ * Marketing block, mid-page. It used to carry id="how-it-works" and was the
+ * target of the hero's "How It Works" button, which meant that button scrolled
+ * people to a "Pre-order Now" advert instead of an explanation. The id is gone
+ * and the explaining is done by /how-it-works, which this now links to as a
+ * second entry point for anyone who scrolled past the hero.
+ */
 export function PromoBanner() {
   return (
-    <section
-      id="how-it-works"
-      className="my-12 overflow-hidden rounded-2xl bg-surface-warm"
-    >
+    <section className="my-12 overflow-hidden rounded-2xl bg-surface-warm">
       <div className="flex flex-wrap items-center gap-6 px-6 py-6 sm:px-8">
         <span
           aria-hidden
@@ -19,7 +25,14 @@ export function PromoBanner() {
             Plan ahead &amp; save time
           </h2>
           <p className="mt-1.5 text-sm text-muted">
-            Pre-order your favourite meals up to 14 days in advance.
+            Pre-order your favourite meals up to {BOOKING_WINDOW_DAYS} days in
+            advance.{" "}
+            <Link
+              href="/how-it-works"
+              className="font-medium text-primary hover:underline"
+            >
+              How it works
+            </Link>
           </p>
         </div>
 

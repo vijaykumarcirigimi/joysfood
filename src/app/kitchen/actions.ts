@@ -101,6 +101,84 @@ export async function updateOrderStatus(
   revalidatePath("/kitchen");
 }
 
+/**
+ * Retry a refund that failed the first time.
+ *
+ * No new logic: cancel_order() keeps reporting refund_due for a cancelled order
+ * whose money is still held, so calling cancelOrder() again picks up exactly
+ * where the failed attempt left off. The idempotency key means a retry after a
+ * timeout returns the original refund rather than issuing a second one.
+ */
+export async function retryRefund(formData: FormData): Promise<void> {
+  if (!(await isKitchenAuthed())) throw new Error("Not authorised.");
+
+  const token = z.uuid().safeParse(formData.get("publicToken"));
+  if (!token.success) throw new Error("Invalid order.");
+
+  const outcome = await cancelOrder(token.data, "kitchen");
+  if (!outcome.ok) throw new Error(outcome.error);
+
+  if (outcome.refundPending) {
+    // Still owed. The row stays in the panel, which is the point.
+    console.error("[kitchen] refund retry did not settle:", outcome.orderNumber);
+  }
+
+  revalidatePath("/kitchen");
+}
+
+/**
+ * Record a refund the kitchen sent by hand.
+ *
+ * The escape hatch for manual UPI, where there is no gateway to call, and for
+ * a gateway refund that had to be done from the Razorpay dashboard. The
+ * reference is whatever identifies the transfer — a UTR, usually — so the
+ * payment can be traced later.
+ */
+export async function markRefundedManually(formData: FormData): Promise<void> {
+  if (!(await isKitchenAuthed())) throw new Error("Not authorised.");
+
+  const parsed = z
+    .object({
+      publicToken: z.uuid(),
+      reference: z.string().trim().max(80).optional(),
+    })
+    .safeParse({
+      publicToken: formData.get("publicToken"),
+      reference: formData.get("reference"),
+    });
+  if (!parsed.success) throw new Error("Invalid refund reference.");
+
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Service role key is not configured.");
+
+  const { data: order } = await supabase
+    .from("orders")
+    .select("order_number, total_paise")
+    .eq("public_token", parsed.data.publicToken)
+    .maybeSingle();
+
+  if (!order) throw new Error("Could not find that order.");
+
+  // Prefixed so a hand-entered reference can never be mistaken for a gateway
+  // refund id during reconciliation.
+  const reference = parsed.data.reference?.trim()
+    ? `manual:${parsed.data.reference.trim()}`
+    : `manual:${order.order_number}`;
+
+  const { error } = await supabase.rpc("mark_order_refunded", {
+    p_public_token: parsed.data.publicToken,
+    p_refund_id: reference,
+    p_amount_paise: order.total_paise,
+  });
+
+  if (error) {
+    console.error("[kitchen] manual refund record failed:", error);
+    throw new Error("Could not record that refund.");
+  }
+
+  revalidatePath("/kitchen");
+}
+
 export async function markPaid(formData: FormData): Promise<void> {
   if (!(await isKitchenAuthed())) throw new Error("Not authorised.");
 

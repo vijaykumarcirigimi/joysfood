@@ -76,6 +76,52 @@ export async function getKitchenOrders(
   return { orders: (data ?? []) as unknown as KitchenOrder[], error: null };
 }
 
+export type RefundOwed = {
+  id: string;
+  order_number: string;
+  public_token: string;
+  customer_name: string;
+  customer_phone: string;
+  payment_method: string;
+  total_paise: number;
+  cancelled_at: string | null;
+  cancellation_reason: string | null;
+  razorpay_payment_id: string | null;
+};
+
+/**
+ * Orders that were cancelled while their money is still held.
+ *
+ * A refund can fail for reasons that have nothing to do with us — the gateway
+ * is down, the settlement balance is short, the card issuer rejects it — and
+ * until now the only trace was a console.error nobody at a home kitchen will
+ * ever read. A customer could be owed money for weeks with no one aware.
+ *
+ * Deliberately not filtered by service date, unlike everything else on this
+ * screen: a debt does not stop existing because its slot has passed.
+ */
+export async function getRefundsOwed(): Promise<RefundOwed[]> {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select(
+      "id, order_number, public_token, customer_name, customer_phone, payment_method, total_paise, cancelled_at, cancellation_reason, razorpay_payment_id",
+    )
+    .eq("status", "cancelled")
+    // 'paid' and not yet 'refunded' is precisely "we still hold their money".
+    .eq("payment_status", "paid")
+    .order("cancelled_at", { ascending: true });
+
+  if (error) {
+    console.error("[kitchen] refunds owed query failed:", error);
+    return [];
+  }
+
+  return (data ?? []) as RefundOwed[];
+}
+
 /**
  * Aggregated dish counts for a service date — "for Aug 12: 14 biryani, 6
  * paneer tikka". Cancelled orders and lapsed unpaid holds are excluded,

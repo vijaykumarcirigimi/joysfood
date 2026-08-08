@@ -12,6 +12,7 @@ import {
 import { addDays, formatDayLabel, formatTime, istToday } from "@/lib/dates";
 import {
   buildPrepSheet,
+  getRefundsOwed,
   getKitchenOrders,
   groupBySlot,
   NEXT_STATUS,
@@ -21,6 +22,7 @@ import { isKitchenAuthed, isKitchenConfigured } from "@/lib/kitchen-auth";
 import { cn, formatPaise } from "@/lib/utils";
 import { kitchenLogout, markPaid, updateOrderStatus } from "./actions";
 import { LoginForm } from "./login-form";
+import { RefundsOwed } from "./refunds-owed";
 
 export const metadata: Metadata = { title: "Kitchen", robots: { index: false } };
 export const dynamic = "force-dynamic";
@@ -73,7 +75,12 @@ export default async function KitchenPage({
   const today = istToday();
   const selected = /^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ? date! : today;
 
-  const { orders, error } = await getKitchenOrders(selected, selected);
+  const [{ orders, error }, refundsOwed] = await Promise.all([
+    getKitchenOrders(selected, selected),
+    // Not scoped to the selected date — money owed must follow the kitchen
+    // around whichever day they are looking at.
+    getRefundsOwed(),
+  ]);
   const prepSheet = buildPrepSheet(orders);
   const slotGroups = groupBySlot(orders);
 
@@ -125,6 +132,9 @@ export default async function KitchenPage({
           {error}
         </p>
       ) : null}
+
+      {/* Above the queue on purpose: an unpaid refund outranks today's cooking. */}
+      <RefundsOwed orders={refundsOwed} />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_18rem]">
         <div className="space-y-8">

@@ -99,10 +99,21 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
           <ArrowLeft className="size-4" aria-hidden />
         </button>
 
+        {/*
+          * py-1.5 with -my-1.5: room for the hover lift, taken back so the bar
+          * keeps its height.
+          *
+          * overflow-x: auto forces overflow-y to compute to auto as well — CSS
+          * does not allow one axis to scroll while the other stays visible. The
+          * chips filled this box exactly, so hover's 2px lift and its shadow
+          * were clipped against the top edge. Padding gives the transform
+          * somewhere to go; the negative margin keeps that padding from making
+          * the sticky bar taller.
+          */}
         <div
           ref={railRef}
           onScroll={syncEdges}
-          className="no-scrollbar flex min-w-0 flex-1 gap-2.5 overflow-x-auto"
+          className="no-scrollbar -my-1.5 flex min-w-0 flex-1 gap-2.5 overflow-x-auto py-1.5"
         >
           {sections.map((section) => {
             const isActive = section.slug === activeSlug;

@@ -93,6 +93,13 @@ export async function refundPayment(input: {
   paymentId: string;
   amountPaise: number;
   notes?: Record<string, string>;
+  /**
+   * Stable per order+payment, never random. Razorpay dedupes on this, so a
+   * retry after a timeout — where the first call may well have succeeded
+   * without us hearing back — returns the original refund instead of issuing a
+   * second one. Random keys would defeat exactly the case this protects.
+   */
+  idempotencyKey?: string;
 }): Promise<RefundResult> {
   if (!hasRazorpayConfig) return { ok: false, error: "Razorpay is not configured." };
 
@@ -105,6 +112,9 @@ export async function refundPayment(input: {
       headers: {
         Authorization: `Basic ${auth}`,
         "Content-Type": "application/json",
+        ...(input.idempotencyKey
+          ? { "X-Refund-Idempotency": input.idempotencyKey }
+          : {}),
       },
       body: JSON.stringify({
         amount: input.amountPaise,

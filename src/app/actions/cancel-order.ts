@@ -103,6 +103,10 @@ export async function cancelOrder(
     paymentId: row.payment_id as string,
     amountPaise: row.refund_paise as number,
     notes: { order_number: orderNumber, cancelled_by: by },
+    // Derived from the order and payment, so every retry of this cancellation
+    // sends the same key and Razorpay returns the original refund rather than
+    // issuing a second one.
+    idempotencyKey: `${orderNumber}:${row.payment_id}`,
   });
 
   if (!refund.ok && !refund.alreadyRefunded) {

@@ -216,7 +216,7 @@ export async function confirmPayment(
   // first and has already sent it — two confirmations for one order is worse
   // than none.
   if (!row.already_paid) {
-    sendOrderEmail(value.publicToken, "confirmed");
+    sendOrderEmail(value.publicToken, "received");
   }
 
   return { ok: true, alreadyPaid: Boolean(row.already_paid) };

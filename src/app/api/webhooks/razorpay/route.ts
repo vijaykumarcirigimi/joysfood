@@ -144,7 +144,7 @@ export async function POST(request: Request) {
       // Only on the transition. already_paid means the browser callback beat us
       // to it and has already emailed the customer.
       if (!row.already_paid) {
-        sendOrderEmail(row.public_token as string, "confirmed");
+        sendOrderEmail(row.public_token as string, "received");
       }
     }
     revalidatePath("/orders");

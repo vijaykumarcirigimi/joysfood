@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "./supabase/admin";
 
 export const KITCHEN_STATUSES = [
   "pending_payment",
+  "awaiting_acceptance",
   "confirmed",
   "preparing",
   "ready",
@@ -13,7 +14,13 @@ export const KITCHEN_STATUSES = [
 
 export type KitchenStatus = (typeof KITCHEN_STATUSES)[number];
 
-/** The one-click move the kitchen makes next, per status. */
+/**
+ * The one-click move the kitchen makes next, per status.
+ *
+ * 'awaiting_acceptance' is deliberately absent: accepting is a decision, not a
+ * step, and it has its own pair of buttons. Putting it here would let the
+ * generic "next" button confirm an order the kitchen never actually looked at.
+ */
 export const NEXT_STATUS: Partial<Record<KitchenStatus, KitchenStatus>> = {
   confirmed: "preparing",
   preparing: "ready",
@@ -23,6 +30,7 @@ export const NEXT_STATUS: Partial<Record<KitchenStatus, KitchenStatus>> = {
 export type KitchenOrder = {
   id: string;
   order_number: string;
+  public_token: string;
   customer_name: string;
   customer_phone: string;
   fulfilment_date: string;
@@ -44,7 +52,7 @@ export type KitchenOrder = {
 };
 
 const SELECT = `
-  id, order_number, customer_name, customer_phone,
+  id, order_number, public_token, customer_name, customer_phone,
   fulfilment_date, fulfilment_type, delivery_address, delivery_notes,
   status, payment_status, payment_method, total_paise, created_at,
   slot:time_slots ( id, label, start_time, end_time ),
@@ -169,7 +177,13 @@ export function buildPrepSheet(
   const counts = new Map<string, number>();
 
   for (const order of orders) {
-    if (order.status === "cancelled" || order.status === "pending_payment") {
+    // Also skips orders the kitchen has not accepted yet — shopping for an
+    // order you may still reject is exactly the waste this gate prevents.
+    if (
+      order.status === "cancelled" ||
+      order.status === "pending_payment" ||
+      order.status === "awaiting_acceptance"
+    ) {
       continue;
     }
     for (const item of order.items) {

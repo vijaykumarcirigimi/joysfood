@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { cancelOrder } from "@/app/actions/cancel-order";
+import { sendOrderEmail } from "@/lib/email";
 import { isKitchenAuthed, signInKitchen, signOutKitchen } from "@/lib/kitchen-auth";
 import { KITCHEN_STATUSES } from "@/lib/kitchen";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -96,6 +97,84 @@ export async function updateOrderStatus(
   if (error) {
     console.error("[kitchen] status update failed:", error);
     throw new Error("Could not update that order.");
+  }
+
+  revalidatePath("/kitchen");
+}
+
+/**
+ * Accept an order the customer is waiting on.
+ *
+ * This is the moment the kitchen's promise becomes real, so it is also the
+ * moment the customer hears "confirmed" — not at checkout.
+ */
+export async function acceptOrder(formData: FormData): Promise<void> {
+  if (!(await isKitchenAuthed())) throw new Error("Not authorised.");
+
+  const token = z.uuid().safeParse(formData.get("publicToken"));
+  if (!token.success) throw new Error("Invalid order.");
+
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Service role key is not configured.");
+
+  const { data, error } = await supabase.rpc("accept_order", {
+    p_public_token: token.data,
+  });
+  if (error) {
+    console.error("[kitchen] accept failed:", error);
+    throw new Error("Could not accept that order.");
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.order_exists) throw new Error("Could not find that order.");
+  if (row.refused) throw new Error(row.refused as string);
+
+  // Only on the actual transition — `already` means someone accepted it a
+  // moment ago and the customer has been told once already.
+  if (row.accepted) {
+    sendOrderEmail(token.data, "accepted");
+  }
+
+  revalidatePath("/kitchen");
+  revalidatePath(`/order/${token.data}`);
+  revalidatePath("/orders");
+}
+
+/**
+ * Reject an order the kitchen cannot take.
+ *
+ * Cancels, then refunds through the same path as any other cancellation —
+ * cancelOrder() is the single place that moves money back, so a rejection
+ * cannot quietly keep a customer's payment.
+ */
+export async function rejectOrder(formData: FormData): Promise<void> {
+  if (!(await isKitchenAuthed())) throw new Error("Not authorised.");
+
+  const parsed = z
+    .object({
+      publicToken: z.uuid(),
+      reason: z.string().trim().max(200).optional(),
+    })
+    .safeParse({
+      publicToken: formData.get("publicToken"),
+      reason: formData.get("reason"),
+    });
+  if (!parsed.success) throw new Error("Invalid rejection.");
+
+  const outcome = await cancelOrder(
+    parsed.data.publicToken,
+    "kitchen",
+    parsed.data.reason?.trim()
+      ? `The kitchen could not take this order — ${parsed.data.reason.trim()}`
+      : "The kitchen could not take this order",
+  );
+  if (!outcome.ok) throw new Error(outcome.error);
+
+  if (outcome.refundPending) {
+    console.error(
+      "[kitchen] REJECTED but refund outstanding:",
+      outcome.orderNumber,
+    );
   }
 
   revalidatePath("/kitchen");

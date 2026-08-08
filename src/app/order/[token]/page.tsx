@@ -12,7 +12,9 @@ import { isRazorpayTestMode } from "@/lib/razorpay";
 import { createSupabasePublicClient } from "@/lib/supabase/public";
 import { formatPaise } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Order confirmed" };
+// Not "Order confirmed": this page also serves an order awaiting payment, one
+// awaiting the kitchen's OK, and a cancelled one.
+export const metadata: Metadata = { title: "Your order" };
 export const dynamic = "force-dynamic";
 
 type OrderView = {
@@ -36,6 +38,7 @@ type OrderView = {
 
 const STATUS_COPY: Record<string, string> = {
   pending_payment: "Awaiting payment",
+  awaiting_acceptance: "Awaiting confirmation",
   confirmed: "Confirmed",
   preparing: "Being cooked",
   ready: "Ready",
@@ -73,6 +76,8 @@ export default async function OrderPage({
     order.payment_status !== "paid" &&
     order.status !== "cancelled";
 
+  const awaitingAcceptance = order.status === "awaiting_acceptance";
+
   // Shown only while self-cancellation would actually succeed. cancel_order()
   // re-checks the same boundary server-side and is the authority; this just
   // avoids offering a button that would be refused.
@@ -91,18 +96,28 @@ export default async function OrderPage({
 
       <main className="mx-auto max-w-2xl px-4 py-12">
         <div className="text-center">
-          {awaitingOnlinePayment ? (
+          {/* Three distinct states, and the middle one is the point of the
+              acceptance gate: "received" is not "confirmed". Telling someone
+              their order is confirmed before the kitchen has seen it is a
+              promise nobody made. */}
+          {awaitingOnlinePayment || awaitingAcceptance ? (
             <Clock className="mx-auto size-14 text-accent" aria-hidden />
           ) : (
             <CheckCircle2 className="mx-auto size-14 text-veg" aria-hidden />
           )}
           <h1 className="mt-4 font-display text-3xl font-bold tracking-tight">
-            {awaitingOnlinePayment ? "Almost there" : "Order confirmed"}
+            {awaitingOnlinePayment
+              ? "Almost there"
+              : awaitingAcceptance
+                ? "Order received"
+                : "Order confirmed"}
           </h1>
           <p className="mt-2 text-muted">
             {awaitingOnlinePayment
               ? "Your slot is held — complete the payment to confirm it."
-              : `Thanks ${order.customer_name.split(" ")[0]} — we've got it.`}
+              : awaitingAcceptance
+                ? `Thanks ${order.customer_name.split(" ")[0]} — the kitchen will confirm this shortly. We'll email you the moment it does.`
+                : `Thanks ${order.customer_name.split(" ")[0]} — we've got it.`}
           </p>
           <p className="mt-4 inline-block rounded-full bg-surface-alt px-4 py-1.5 font-mono text-sm">
             {order.order_number}

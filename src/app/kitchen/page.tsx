@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import {
   AlertCircle,
+  Check,
   ChefHat,
   ClipboardList,
   IndianRupee,
   LogOut,
   MapPin,
   Phone,
+  X,
 } from "lucide-react";
 import { addDays, formatDayLabel, formatTime, istToday } from "@/lib/dates";
 import {
@@ -22,7 +24,13 @@ import {
 import { isKitchenAuthed, isKitchenConfigured } from "@/lib/kitchen-auth";
 import { BOOKING_WINDOW_DAYS } from "@/lib/slots";
 import { cn, formatPaise } from "@/lib/utils";
-import { kitchenLogout, markPaid, updateOrderStatus } from "./actions";
+import {
+  acceptOrder,
+  kitchenLogout,
+  markPaid,
+  rejectOrder,
+  updateOrderStatus,
+} from "./actions";
 import { LoginForm } from "./login-form";
 import { RefundsOwed } from "./refunds-owed";
 
@@ -31,6 +39,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_STYLES: Record<string, string> = {
   pending_payment: "bg-accent/20 text-accent-foreground",
+  awaiting_acceptance: "bg-primary text-primary-fg",
   confirmed: "bg-primary-soft text-primary",
   preparing: "bg-accent/20 text-text",
   ready: "bg-veg/15 text-veg",
@@ -40,6 +49,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   pending_payment: "Awaiting payment",
+  awaiting_acceptance: "Needs your OK",
   confirmed: "Confirmed",
   preparing: "Preparing",
   ready: "Ready",
@@ -246,9 +256,19 @@ export default async function KitchenPage({
 
 function OrderCard({ order }: { order: KitchenOrder }) {
   const next = NEXT_STATUS[order.status];
+  const needsDecision = order.status === "awaiting_acceptance";
 
   return (
-    <article className="rounded-xl border border-border bg-surface p-4">
+    <article
+      className={cn(
+        "rounded-xl border bg-surface p-4",
+        // An order waiting on a decision has to stand out from one already
+        // being cooked — it is the only card that needs the kitchen to act.
+        needsDecision
+          ? "border-primary shadow-card ring-1 ring-primary/20"
+          : "border-border",
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-mono text-sm font-semibold">
@@ -302,6 +322,51 @@ function OrderCard({ order }: { order: KitchenOrder }) {
           </p>
         ) : null}
       </div>
+
+      {/* Accept / Reject come first and larger: until one is pressed the
+          customer is sitting on "Order received" waiting to hear. */}
+      {needsDecision ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+          <form action={acceptOrder}>
+            <input type="hidden" name="publicToken" value={order.public_token} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-fg transition-colors hover:bg-primary-hover"
+            >
+              <Check className="size-4" aria-hidden />
+              Accept
+            </button>
+          </form>
+
+          <form action={rejectOrder} className="flex items-center gap-2">
+            <input type="hidden" name="publicToken" value={order.public_token} />
+            <label className="sr-only" htmlFor={`reason-${order.id}`}>
+              Reason for rejecting {order.order_number}
+            </label>
+            <input
+              id={`reason-${order.id}`}
+              name="reason"
+              type="text"
+              maxLength={200}
+              placeholder="Reason (optional)"
+              className="w-40 rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+            />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-nonveg/50 px-3.5 py-2.5 text-sm font-semibold text-nonveg transition-colors hover:bg-nonveg/10"
+            >
+              <X className="size-4" aria-hidden />
+              Reject
+            </button>
+          </form>
+
+          {order.payment_status === "paid" ? (
+            <span className="text-xs text-muted">
+              Rejecting refunds {formatPaise(order.total_paise)} automatically.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {order.payment_status === "unpaid" && order.status !== "cancelled" ? (

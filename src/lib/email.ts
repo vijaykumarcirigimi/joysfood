@@ -38,6 +38,7 @@ type OrderRow = {
   total_paise: number;
   payment_method: string;
   payment_status: string;
+  status: string;
   slot: { start_time: string; end_time: string } | null;
   items:
     | { item_name_snapshot: string; quantity: number; unit_price_paise_snapshot: number }[]
@@ -47,13 +48,23 @@ type OrderRow = {
 const SELECT = `
   order_number, public_token, customer_name, customer_phone, customer_email,
   fulfilment_date, fulfilment_type, delivery_address, delivery_notes,
-  total_paise, payment_method, payment_status,
+  total_paise, payment_method, payment_status, status,
   slot:time_slots ( start_time, end_time ),
   items:order_items ( item_name_snapshot, quantity, unit_price_paise_snapshot )
 `;
 
 /** What the customer needs to know about money, in one sentence. */
 function paymentLine(order: OrderRow, kind: EmailKind): string {
+  if (kind === "received" && order.status === "awaiting_acceptance") {
+    const paid =
+      order.payment_status === "paid"
+        ? "Your payment has gone through. "
+        : order.payment_method === "cod"
+          ? "Nothing to pay yet. "
+          : "";
+    return `${paid}The kitchen will confirm your order shortly — we'll email you the moment it does.`;
+  }
+
   if (kind === "cancelled") {
     if (order.payment_status === "refunded") {
       return "Your refund has been issued and usually reaches your account in 5–7 working days.";
@@ -75,7 +86,12 @@ function paymentLine(order: OrderRow, kind: EmailKind): string {
   return "Please complete your UPI transfer; we will confirm it by hand.";
 }
 
-export type EmailKind = "confirmed" | "cancelled";
+/**
+ * "received" is not the same as "accepted", and conflating them is how a
+ * customer ends up told their order is confirmed before the kitchen has seen
+ * it. received = we have it and are looking; accepted = we are cooking it.
+ */
+export type EmailKind = "received" | "accepted" | "cancelled";
 
 /**
  * Fire-and-forget. Deliberately returns void rather than a promise the caller

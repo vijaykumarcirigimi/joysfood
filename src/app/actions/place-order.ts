@@ -128,7 +128,7 @@ export async function placeOrder(input: unknown): Promise<PlaceOrderResult> {
   // confirmPayment() sends the email once they have. Sending "confirmed" here
   // would be a lie for the one method where it matters most.
   if (value.paymentMethod !== "razorpay") {
-    sendOrderEmail(order.public_token as string, "confirmed");
+    sendOrderEmail(order.public_token as string, "received");
   }
 
   return {

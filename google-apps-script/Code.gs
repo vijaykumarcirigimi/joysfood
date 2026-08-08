@@ -49,7 +49,10 @@ function doPost(e) {
 
     // The customer only gets mail if they gave us an address.
     if (order.customerEmail) {
-      var built = kind === "cancelled" ? cancelledEmail(order) : confirmedEmail(order);
+      var built =
+        kind === "cancelled" ? cancelledEmail(order)
+        : kind === "accepted" ? acceptedEmail(order)
+        : receivedEmail(order);
       GmailApp.sendEmail(order.customerEmail, built.subject, built.text, {
         name: "Joy's Food",
         htmlBody: built.html,
@@ -59,11 +62,18 @@ function doPost(e) {
 
     // The kitchen alert is the one that actually has to arrive — an order
     // nobody notices is worse than a confirmation nobody receives.
+    //
+    // Nothing is sent on "accepted": the kitchen just pressed Accept, so
+    // emailing them about their own action is noise that trains them to ignore
+    // the alerts that matter.
     var kitchen = PropertiesService.getScriptProperties().getProperty("KITCHEN_EMAIL");
-    if (kitchen && kind !== "cancelled") {
-      GmailApp.sendEmail(kitchen, "New order " + order.orderNumber, kitchenText(order), {
-        name: "Joy's Food orders",
-      });
+    if (kitchen && kind === "received") {
+      GmailApp.sendEmail(
+        kitchen,
+        "NEEDS YOUR OK — new order " + order.orderNumber,
+        kitchenText(order),
+        { name: "Joy's Food orders" }
+      );
       sent.push("kitchen");
     } else if (kitchen && kind === "cancelled") {
       GmailApp.sendEmail(kitchen, "CANCELLED " + order.orderNumber, kitchenText(order), {
@@ -116,13 +126,19 @@ function itemLines(order) {
     .join("\n");
 }
 
-function confirmedEmail(order) {
+/**
+ * Placed, but not yet confirmed. The kitchen has to accept it first, and this
+ * email must not imply otherwise — that promise is the whole reason the
+ * acceptance step exists.
+ */
+function receivedEmail(order) {
   var when = order.slot ? order.day + ", " + order.slot : order.day;
-  var subject = "Order confirmed — " + order.orderNumber;
+  var subject = "Order received — " + order.orderNumber;
 
   var text =
     "Hi " + order.customerName.split(" ")[0] + ",\n\n" +
-    "We've got your order and it's confirmed.\n\n" +
+    "We've got your order. The kitchen will confirm it shortly and we'll\n" +
+    "email you the moment it does.\n\n" +
     "Order:    " + order.orderNumber + "\n" +
     "When:     " + when + "\n" +
     (order.fulfilmentType === "delivery"
@@ -137,13 +153,25 @@ function confirmedEmail(order) {
   var html =
     "<div style=\"font-family:system-ui,sans-serif;max-width:520px;color:#221c15\">" +
     "<h2 style=\"color:#e2571e;margin:0 0 4px\">Joy&rsquo;s Food</h2>" +
-    "<p>Hi " + esc(order.customerName.split(" ")[0]) + ", we&rsquo;ve got your order and it&rsquo;s confirmed.</p>" +
+    "<p>Hi " + esc(order.customerName.split(" ")[0]) + ", we&rsquo;ve got your order. " +
+    "The kitchen will confirm it shortly and we&rsquo;ll email you the moment it does.</p>" +
     "<p style=\"font-family:monospace;background:#fdf0e2;padding:8px 12px;border-radius:8px;display:inline-block\">" +
     esc(order.orderNumber) + "</p>" +
     "<p><strong>" + esc(when) + "</strong><br>" +
     (order.fulfilmentType === "delivery"
       ? esc(order.deliveryAddress || "Delivery")
       : "Pickup from the kitchen") + "</p>" +
+    itemsTable(order) +
+    "<p style=\"color:#7c7268\">" + esc(order.paymentLine) + "</p>" +
+    "<p><a href=\"" + esc(order.orderUrl) + "\" style=\"color:#e2571e\">Track or cancel your order</a></p>" +
+    "</div>";
+
+  return { subject: subject, text: text, html: html };
+}
+
+/** Shared items + total block, so the two long templates cannot drift apart. */
+function itemsTable(order) {
+  return (
     "<table style=\"border-collapse:collapse;width:100%\">" +
     (order.items || [])
       .map(function (i) {
@@ -155,7 +183,39 @@ function confirmedEmail(order) {
       .join("") +
     "<tr><td style=\"padding-top:8px;border-top:1px solid #f1e8dd\"><strong>Total</strong></td>" +
     "<td align=\"right\" style=\"padding-top:8px;border-top:1px solid #f1e8dd\"><strong>" +
-    esc(order.total) + "</strong></td></tr></table>" +
+    esc(order.total) + "</strong></td></tr></table>"
+  );
+}
+
+function acceptedEmail(order) {
+  var when = order.slot ? order.day + ", " + order.slot : order.day;
+  var subject = "Order confirmed — " + order.orderNumber;
+
+  var text =
+    "Hi " + order.customerName.split(" ")[0] + ",\n\n" +
+    "Good news — the kitchen has confirmed your order.\n\n" +
+    "Order:    " + order.orderNumber + "\n" +
+    "When:     " + when + "\n" +
+    (order.fulfilmentType === "delivery"
+      ? "Delivery: " + (order.deliveryAddress || "") + "\n"
+      : "Pickup:   from the kitchen\n") +
+    "\n" + itemLines(order) + "\n\n" +
+    "Total:    " + order.total + "\n" +
+    order.paymentLine + "\n\n" +
+    "Track or cancel your order:\n" + order.orderUrl + "\n\n" +
+    "Joy's Food\n";
+
+  var html =
+    "<div style=\"font-family:system-ui,sans-serif;max-width:520px;color:#221c15\">" +
+    "<h2 style=\"color:#e2571e;margin:0 0 4px\">Joy&rsquo;s Food</h2>" +
+    "<p>Hi " + esc(order.customerName.split(" ")[0]) + ", the kitchen has confirmed your order.</p>" +
+    "<p style=\"font-family:monospace;background:#fdf0e2;padding:8px 12px;border-radius:8px;display:inline-block\">" +
+    esc(order.orderNumber) + "</p>" +
+    "<p><strong>" + esc(when) + "</strong><br>" +
+    (order.fulfilmentType === "delivery"
+      ? esc(order.deliveryAddress || "Delivery")
+      : "Pickup from the kitchen") + "</p>" +
+    itemsTable(order) +
     "<p style=\"color:#7c7268\">" + esc(order.paymentLine) + "</p>" +
     "<p><a href=\"" + esc(order.orderUrl) + "\" style=\"color:#e2571e\">Track or cancel your order</a></p>" +
     "</div>";

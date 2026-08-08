@@ -38,6 +38,7 @@ export type MyOrder = {
 
 export const ORDER_STATUS_COPY: Record<string, string> = {
   pending_payment: "Awaiting payment",
+  awaiting_acceptance: "Awaiting confirmation",
   confirmed: "Confirmed",
   preparing: "Being cooked",
   ready: "Ready",

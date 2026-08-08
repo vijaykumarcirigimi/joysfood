@@ -66,20 +66,27 @@ function doPost(e) {
     // Nothing is sent on "accepted": the kitchen just pressed Accept, so
     // emailing them about their own action is noise that trains them to ignore
     // the alerts that matter.
-    var kitchen = PropertiesService.getScriptProperties().getProperty("KITCHEN_EMAIL");
-    if (kitchen && kind === "received") {
-      GmailApp.sendEmail(
-        kitchen,
-        "NEEDS YOUR OK — new order " + order.orderNumber,
-        kitchenText(order),
-        { name: "Joy's Food orders" }
-      );
-      sent.push("kitchen");
-    } else if (kitchen && kind === "cancelled") {
-      GmailApp.sendEmail(kitchen, "CANCELLED " + order.orderNumber, kitchenText(order), {
+    // Recipients come from the app's admin-editable list. KITCHEN_EMAIL remains
+    // as a fallback so emptying that list by accident makes the kitchen quieter
+    // rather than silent — an order nobody is told about is the one outcome
+    // this whole feature exists to prevent.
+    var staff = Array.isArray(body.staffEmails) ? body.staffEmails.filter(String) : [];
+    if (staff.length === 0) {
+      var fallback = PropertiesService.getScriptProperties().getProperty("KITCHEN_EMAIL");
+      if (fallback) staff = [fallback];
+    }
+
+    if (staff.length > 0 && (kind === "received" || kind === "cancelled")) {
+      var subject =
+        kind === "received"
+          ? "NEEDS YOUR OK — new order " + order.orderNumber
+          : "CANCELLED " + order.orderNumber;
+      // One message, many recipients — Gmail counts each address against the
+      // daily quota either way, and a single thread is easier to follow.
+      GmailApp.sendEmail(staff.join(","), subject, kitchenText(order), {
         name: "Joy's Food orders",
       });
-      sent.push("kitchen");
+      sent.push("kitchen:" + staff.length);
     }
 
     return json({ ok: true, sent: sent });

@@ -77,11 +77,16 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
   };
 
   return (
+    /*
+     * Reads as a navigation bar rather than a row of tags: a solid surface, a
+     * defined bottom edge and a soft shadow so it separates from the menu
+     * scrolling underneath it, instead of dissolving into the page.
+     */
     <nav
       aria-label="Menu categories"
-      className="sticky top-[68px] z-30 border-b border-border bg-bg/90 backdrop-blur-md"
+      className="sticky top-[68px] z-30 border-b border-border-strong bg-surface/95 shadow-[0_4px_16px_-6px_rgba(34,28,21,0.18)] backdrop-blur-md"
     >
-      <div className="mx-auto flex max-w-[1140px] items-center gap-2 px-4 py-4">
+      <div className="mx-auto flex max-w-[1140px] items-center gap-2 px-4 py-3.5">
         <button
           type="button"
           onClick={() => nudge(-1)}
@@ -106,13 +111,15 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
                 data-slug={section.slug}
                 aria-current={isActive ? "true" : undefined}
                 className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors",
+                  "flex shrink-0 items-center gap-2 rounded-full border px-5 py-3 text-[0.95rem] font-semibold transition-all duration-150",
                   isActive
-                    ? "border-primary bg-primary-soft text-primary"
-                    : "border-border bg-surface text-text hover:border-primary/40",
+                    // Solid fill, not a tint. The active category should be
+                    // unmistakable at a glance on a phone in a kitchen.
+                    ? "border-primary bg-primary text-primary-fg shadow-[0_2px_10px_-2px_rgba(226,87,30,0.55)]"
+                    : "border-border-strong bg-surface text-text hover:-translate-y-0.5 hover:border-primary hover:text-primary hover:shadow-soft",
                 )}
               >
-                <span aria-hidden className="text-base leading-none">
+                <span aria-hidden className="text-lg leading-none">
                   {categoryEmoji(section.slug)}
                 </span>
                 {section.name}

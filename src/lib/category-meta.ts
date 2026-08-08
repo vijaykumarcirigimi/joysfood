@@ -3,6 +3,12 @@
  * back to a plate, so adding a category in admin never breaks the rail.
  */
 const CATEGORY_EMOJI: Record<string, string> = {
+  // The real Joy's Food categories.
+  veg: "🥬",
+  "non-veg": "🍗",
+  snacks: "🧆",
+  powders: "🧂",
+  // Kept for the sample menu and anything added later in admin.
   starters: "🍢",
   "biryani-rice": "🍚",
   "main-course": "🍛",

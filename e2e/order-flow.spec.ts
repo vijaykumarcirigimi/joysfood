@@ -90,7 +90,15 @@ test.describe("order flow", () => {
     await expect(page.getByText("Pick a time slot to continue.")).toBeVisible();
   });
 
-  test("pay on delivery: order is placed and confirmed", async ({ page }) => {
+  /**
+   * "received", not "confirmed" — the kitchen has to accept it first (0009).
+   * This assertion previously read "Order confirmed" and is the behaviour the
+   * acceptance gate deliberately changed, so it is worth pinning down: a
+   * regression here would mean promising a customer something nobody agreed to.
+   */
+  test("pay on delivery: order is received and awaits the kitchen", async ({
+    page,
+  }) => {
     const dish = await addFirstAvailableDish(page);
     await page.goto("/cart");
 
@@ -105,8 +113,11 @@ test.describe("order flow", () => {
 
     await page.waitForURL(ORDER_URL);
     await expect(
-      page.getByRole("heading", { name: "Order confirmed" }),
+      page.getByRole("heading", { name: "Order received" }),
     ).toBeVisible();
+    await expect(page.getByText(/the kitchen will confirm this shortly/i)).toBeVisible();
+    // The status pill must agree with the headline.
+    await expect(page.getByText("Awaiting confirmation")).toBeVisible();
 
     // The order number is what the customer quotes to us, so assert its shape.
     await expect(page.getByText(/^JF-\d{4}-\d{4}$/)).toBeVisible();

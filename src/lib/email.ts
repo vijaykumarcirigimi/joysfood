@@ -2,6 +2,7 @@ import "server-only";
 
 import { formatDayLabel, formatTime } from "@/lib/dates";
 import { pushToCustomer, pushToStaff } from "@/lib/push";
+import { emailsFor } from "@/lib/recipients";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { formatPaise } from "@/lib/utils";
 
@@ -233,9 +234,17 @@ async function deliver(publicToken: string, kind: EmailKind): Promise<void> {
   // decides per recipient.
   const origin = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ?? "";
 
+  // Whom to alert now comes from the admin-editable list. An empty result is
+  // not an error: the relay falls back to its own KITCHEN_EMAIL, so emptying
+  // the list by accident makes the kitchen quieter, never silent.
+  const staffEmails = await emailsFor(
+    kind === "cancelled" ? "cancellation" : "new_order",
+  );
+
   const payload = {
     secret: RELAY_SECRET,
     kind,
+    staffEmails,
     order: {
       orderNumber: order.order_number,
       customerName: order.customer_name,

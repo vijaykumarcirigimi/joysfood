@@ -11,7 +11,8 @@
     "test:e2e:clean": "node e2e/cleanup.mjs",
     "walkthrough": "node e2e/walkthrough.mjs",
     "test:concurrency": "node e2e/concurrency.mjs",
-    "menu:load": "node supabase/scripts/load-menu.mjs"
+    "menu:load": "node supabase/scripts/load-menu.mjs",
+    "instagram": "node instagram/generate.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

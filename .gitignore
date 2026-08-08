@@ -64,3 +64,6 @@ next-env.d.ts
 /playwright/.cache/
 
 .vercel
+
+# generated Instagram images
+/instagram/out/
